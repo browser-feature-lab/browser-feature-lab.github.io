@@ -1,0 +1,349 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Browser engine surface probe</title>
+<style>
+  :root {
+    color-scheme: light dark;
+    --bg: #fbfbfa; --fg: #1a1a19; --muted: #6b6b66;
+    --line: #e2e2dd; --card: #ffffff;
+    --ok: #1c7c4a; --warn: #a86a12; --bad: #b3341f; --accent: #2f5eb3;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #16161a; --fg: #e8e8e4; --muted: #97978f;
+      --line: #2e2e35; --card: #1e1e23;
+      --ok: #4ec27e; --warn: #d9a13c; --bad: #e57259; --accent: #7aa2e8;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 32px 20px 64px;
+    background: var(--bg); color: var(--fg);
+    font: 15px/1.55 ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+  main { max-width: 860px; margin: 0 auto; }
+  h1 { font-size: 20px; margin: 0 0 4px; letter-spacing: -0.01em; }
+  .sub { color: var(--muted); margin: 0 0 28px; font-size: 13.5px; }
+  .card {
+    background: var(--card); border: 1px solid var(--line);
+    border-radius: 10px; padding: 18px 20px; margin-bottom: 16px;
+  }
+  label { display: block; font-weight: 600; font-size: 13px; margin-bottom: 6px; }
+  .hint { color: var(--muted); font-size: 12.5px; font-weight: 400; }
+  input[type=text] {
+    width: 100%; padding: 9px 11px; font: inherit; font-size: 14px;
+    border: 1px solid var(--line); border-radius: 7px;
+    background: var(--bg); color: var(--fg);
+  }
+  .row { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 14px; }
+  button {
+    font: inherit; font-weight: 600; font-size: 14px;
+    padding: 9px 18px; border-radius: 7px; cursor: pointer;
+    border: 1px solid transparent; background: var(--accent); color: #fff;
+  }
+  button.secondary { background: transparent; border-color: var(--line); color: var(--fg); }
+  button[disabled] { opacity: 0.45; cursor: default; }
+  ol.families { list-style: none; padding: 0; margin: 0; }
+  ol.families li {
+    display: flex; align-items: center; gap: 10px;
+    padding: 7px 0; border-bottom: 1px solid var(--line); font-size: 14px;
+  }
+  ol.families li:last-child { border-bottom: 0; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--line); flex: none; }
+  .dot.running { background: var(--warn); }
+  .dot.done { background: var(--ok); }
+  .dot.failed { background: var(--bad); }
+  .tag { margin-left: auto; color: var(--muted); font-size: 12px; font-variant-numeric: tabular-nums; }
+  dl.persona { display: grid; grid-template-columns: 150px 1fr; gap: 5px 14px; margin: 0; font-size: 13.5px; }
+  dl.persona dt { color: var(--muted); }
+  dl.persona dd { margin: 0; word-break: break-word; font-variant-numeric: tabular-nums; }
+  code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 12.5px; }
+  .status { font-size: 13.5px; padding: 10px 12px; border-radius: 7px; border: 1px solid var(--line); }
+  .status.ok { color: var(--ok); border-color: currentColor; }
+  .status.bad { color: var(--bad); border-color: currentColor; }
+  .warnbox { color: var(--warn); font-size: 13px; margin-top: 10px; }
+  .fatal {
+    border: 1px solid var(--bad); color: var(--bad); background: var(--card);
+    border-radius: 8px; padding: 12px 14px; margin-bottom: 20px; font-size: 13px;
+    white-space: pre-wrap; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  }
+  @media (max-width: 520px) { dl.persona { grid-template-columns: 1fr; gap: 2px; } }
+</style>
+</head>
+<body>
+<main>
+  <div class="fatal" id="fatal" hidden></div>
+  <h1>Browser engine surface probe</h1>
+  <p class="sub">
+    Runs every probe family once and records the result for this browser
+    configuration. Collection only &mdash; nothing here judges the browser.
+  </p>
+
+  <div class="card">
+    <label for="label">
+      Configuration label
+      <span class="hint">&mdash; identifies this run, e.g. <code>gologin-default</code> or <code>adspower-win11-chrome120</code></span>
+    </label>
+    <input type="text" id="label" autocomplete="off" spellcheck="false" placeholder="browser-profile-config">
+    <div class="row">
+      <button id="run">Run probes</button>
+      <button id="download" class="secondary" disabled>Download JSON</button>
+    </div>
+    <div class="warnbox" id="warn" hidden></div>
+  </div>
+
+  <div class="card" id="progress" hidden>
+    <ol class="families" id="families"></ol>
+  </div>
+
+  <div class="card" id="personaCard" hidden>
+    <label>Advertised persona <span class="hint">&mdash; what this browser claims</span></label>
+    <dl class="persona" id="persona"></dl>
+  </div>
+
+  <div class="card" id="resultCard" hidden>
+    <div class="status" id="status"></div>
+  </div>
+</main>
+
+<script>
+/*
+ * Deliberately a classic script, not a module: it has to survive whatever
+ * kills the module below. A module that fails to parse or throws while
+ * evaluating produces no visible symptom at all — the page renders, the button
+ * does nothing, and there is no way to tell from the UI that anything is
+ * wrong. That failure mode is worth engineering against, because the probe is
+ * run by hand across engines whose support differs by design.
+ */
+(function () {
+  var box = null;
+
+  function show(text) {
+    box = box || document.getElementById("fatal");
+    if (!box) return;
+    box.hidden = false;
+    box.textContent = (box.textContent ? box.textContent + "\n\n" : "") + text;
+  }
+
+  window.addEventListener("error", function (event) {
+    show(
+      "Script error: " + (event.message || "unknown") +
+      (event.filename ? "\n  at " + event.filename + ":" + event.lineno + ":" + event.colno : "")
+    );
+  });
+
+  window.addEventListener("unhandledrejection", function (event) {
+    show("Unhandled promise rejection: " + String(event.reason && event.reason.message || event.reason));
+  });
+
+  /* If the module never signals readiness, say so rather than sitting dead. */
+  window.addEventListener("load", function () {
+    setTimeout(function () {
+      if (!window.__probeReady) {
+        show(
+          "The page loaded but its module scripts did not initialise, so the " +
+          "buttons are inert.\n\nOpen the developer console (F12) for the " +
+          "underlying error. Common causes: the page was opened over file:// " +
+          "instead of through the server, or a probe module used syntax this " +
+          "browser does not support."
+        );
+      }
+    }, 2500);
+  });
+})();
+</script>
+
+<script type="module">
+import { runAll, FAMILIES } from "./runner.js";
+
+/* Signals to the guard above that the module graph evaluated. */
+window.__probeReady = true;
+
+/*
+ * This file avoids optional chaining (?.) and nullish coalescing (??) on
+ * purpose. They are only syntax sugar here, but syntax errors are fatal at
+ * PARSE time: one unsupported token anywhere in this script stops the whole
+ * script from running, so the page renders and every control is dead. An older
+ * engine is a legitimate subject in a study like this, and the shell that
+ * reports "your engine could not load these modules" must itself survive the
+ * engine it is reporting on. The probe modules are free to use modern syntax;
+ * they are loaded separately and fail one at a time.
+ */
+const nullish = (value, fallback) => (value === null || value === undefined) ? fallback : value;
+const message = error => String((error && error.message) || error);
+
+const $ = id => document.getElementById(id);
+const labelInput = $("label");
+const runButton = $("run");
+const downloadButton = $("download");
+
+let lastResult = null;
+
+/* Suggest a label from the persona so unlabelled runs are still identifiable. */
+{
+  const ua = navigator.userAgent;
+  const guess = /Edg\//.test(ua) ? "edge"
+    : /OPR\//.test(ua) ? "opera"
+    : /Firefox\//.test(ua) ? "firefox"
+    : /Chrome\//.test(ua) ? "chrome"
+    : "browser";
+  const major = (/(?:Chrome|Firefox|Version)\/(\d+)/.exec(ua) || [])[1] || "x";
+  labelInput.placeholder = `${guess}-${major}-default`;
+}
+
+/* ?label=... and ?autorun=1 let a scripted pass drive the page without UI. */
+{
+  const params = new URLSearchParams(location.search);
+  if (params.get("label")) labelInput.value = params.get("label");
+}
+
+if (location.protocol === "file:") {
+  const warn = $("warn");
+  warn.hidden = false;
+  warn.textContent =
+    "Opened over file:// — ES modules and the feature manifest will not load. " +
+    "Serve the folder instead: npm run serve";
+}
+
+function paintFamilies() {
+  const list = $("families");
+  list.innerHTML = "";
+  for (const family of FAMILIES) {
+    const li = document.createElement("li");
+    li.innerHTML =
+      `<span class="dot" data-dot="${family.id}"></span>` +
+      `<span>${family.label}</span>` +
+      `<span class="tag" data-tag="${family.id}">queued</span>`;
+    list.appendChild(li);
+  }
+}
+
+function paintPersona(persona) {
+  const claimed = persona.claimed.resolved;
+  const rows = [
+    ["Claimed browser", claimed.name ? `${claimed.name} ${claimed.version}` : "unknown"],
+    ["UA string", persona.userAgent],
+    ["UA-CH platform", (persona.highEntropy && persona.highEntropy.platform)
+      ? (persona.highEntropy.platform + " " + (persona.highEntropy.platformVersion || "")).trim()
+      : "not exposed"],
+    ["Claims agree", persona.claimed.agrees ? "yes" : "NO — UA and UA-CH disagree"],
+    ["Platform", persona.platform],
+    ["Time zone", persona.timeZone],
+    ["Languages", (persona.languages || []).join(", ")],
+    ["Cores / memory", nullish(persona.hardwareConcurrency, "?") + " / " + nullish(persona.deviceMemory, "?") + " GB"],
+    ["Screen", `${persona.screen.width}×${persona.screen.height} @${persona.screen.devicePixelRatio}`],
+    ["navigator.webdriver", String(persona.webdriver)]
+  ];
+
+  const dl = $("persona");
+  dl.innerHTML = "";
+  for (const [term, value] of rows) {
+    const dt = document.createElement("dt");
+    dt.textContent = term;
+    const dd = document.createElement("dd");
+    dd.textContent = nullish(value, "—");
+    if (term === "Claims agree" && !persona.claimed.agrees) dd.style.color = "var(--bad)";
+    dl.append(dt, dd);
+  }
+  $("personaCard").hidden = false;
+}
+
+async function postResult(result) {
+  try {
+    const response = await fetch("./collect", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(result)
+    });
+    if (!response.ok) return { saved: false, reason: `HTTP ${response.status}` };
+    const body = await response.json();
+    return { saved: true, path: body.path };
+  } catch (error) {
+    return { saved: false, reason: message(error) };
+  }
+}
+
+runButton.addEventListener("click", async () => {
+  runButton.disabled = true;
+  downloadButton.disabled = true;
+  $("progress").hidden = false;
+  $("resultCard").hidden = true;
+  paintFamilies();
+
+  const label = labelInput.value.trim() || labelInput.placeholder;
+
+  /* ?only=engineSurface,bcdSurface narrows the run while debugging. */
+  const onlyParam = new URLSearchParams(location.search).get("only");
+  const only = onlyParam ? onlyParam.split(",").map(s => s.trim()).filter(Boolean) : null;
+
+  const result = await runAll({
+    label,
+    only,
+    onProgress({ family, status }) {
+      const dot = document.querySelector(`[data-dot="${family.id}"]`);
+      const tag = document.querySelector(`[data-tag="${family.id}"]`);
+      if (!dot || !tag) return;
+      dot.className = `dot ${status === "running" ? "running" : "done"}`;
+      tag.textContent = status === "running" ? "running…" : "done";
+    }
+  });
+
+  /* Reflect any family that reported failure, after the fact. */
+  for (const family of FAMILIES) {
+    const probe = result.probes[family.id];
+    const dot = document.querySelector(`[data-dot="${family.id}"]`);
+    const tag = document.querySelector(`[data-tag="${family.id}"]`);
+    if (!probe || !dot) continue;
+    if (probe.status === "failed") {
+      dot.className = "dot failed";
+      tag.textContent = "failed";
+    } else if (probe.status === "unavailable") {
+      dot.className = "dot failed";
+      tag.textContent = "unavailable";
+    } else {
+      tag.textContent = `${probe.elapsedMs} ms`;
+    }
+  }
+
+  lastResult = result;
+  paintPersona(result.persona);
+
+  const saved = await postResult(result);
+  const status = $("status");
+  const bcd = result.probes.bcdSurface;
+
+  const summary = (bcd && bcd.status === "ok")
+    ? bcd.value.counts.supported + " of " + bcd.value.counts.probed + " manifest features present."
+    : "BCD surface " + ((bcd && bcd.status) || "missing") +
+      ((bcd && bcd.reason) ? " — " + bcd.reason : "") + ".";
+
+  status.className = `status ${saved.saved ? "ok" : "bad"}`;
+  status.textContent = saved.saved
+    ? `Saved to ${saved.path}. ${summary}`
+    : `Not saved automatically (${saved.reason}) — use Download JSON. ${summary}`;
+
+  $("resultCard").hidden = false;
+  runButton.disabled = false;
+  downloadButton.disabled = false;
+});
+
+if (new URLSearchParams(location.search).get("autorun") === "1") {
+  runButton.click();
+}
+
+downloadButton.addEventListener("click", () => {
+  if (!lastResult) return;
+  const blob = new Blob([JSON.stringify(lastResult, null, 2)], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = `${lastResult.label}.json`;
+  anchor.click();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+});
+</script>
+</body>
+</html>

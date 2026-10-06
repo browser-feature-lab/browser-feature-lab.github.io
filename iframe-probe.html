@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>engine probe (iframe context)</title>
+</head>
+<body>
+<script type="module">
+/*
+ * Child document for iframe-surface.js. Runs the BCD probe against this
+ * frame's own Window and posts the envelope back to the opener.
+ */
+import { collectBcdSurface } from "./bcd-surface.js";
+
+window.addEventListener("message", async event => {
+  if (event.origin !== location.origin) return;
+  const data = event.data;
+  if (!data || !data.token || !event.source) return;
+
+  let result;
+  try {
+    result = await collectBcdSurface({ manifestUrl: data.manifestUrl });
+  } catch (error) {
+    result = { status: "failed", error: String((error && error.message) || error) };
+  }
+
+  try {
+    event.source.postMessage({ token: data.token, result: result }, location.origin);
+  } catch (error) {
+    /* parent went away mid-probe; its own timeout will report this */
+  }
+});
+</script>
+</body>
+</html>
