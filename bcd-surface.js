@@ -67,18 +67,14 @@ const SYMBOLS = Object.assign(Object.create(null), {
 
 const key = name => (SYMBOLS[name] !== undefined ? SYMBOLS[name] : name);
 
-/** `property in object`, never throwing, for hostile/exotic receivers. */
+/** Errors propagate to the per-feature recorder; they are not absences. */
 function has(object, property) {
   if (object == null) return false;
 
   const resolved = key(property);
   if (resolved === undefined) return false;
 
-  try {
-    return resolved in Object(object);
-  } catch {
-    return false;
-  }
+  return resolved in Object(object);
 }
 
 /*
@@ -147,26 +143,16 @@ function instanceOf(name) {
   const source = INSTANCE_SOURCES[name];
   if (!source) return undefined;
 
-  try {
-    return source();
-  } catch {
-    return undefined;
-  }
+  return source();
 }
 
 function globalValue(path) {
-  try {
-    let current = globalThis;
-
-    for (const segment of String(path).split(".")) {
-      if (current == null) return undefined;
-      current = current[segment];
-    }
-
-    return current;
-  } catch {
-    return undefined;
+  let current = globalThis;
+  for (const segment of String(path).split(".")) {
+    if (current == null) return undefined;
+    current = current[segment];
   }
+  return current;
 }
 
 /*
@@ -290,20 +276,12 @@ const PROBES = Object.freeze({
 
   /* css.properties.foo -> does the engine claim to parse it? */
   css(entry) {
-    try {
-      return CSS.supports(entry.target, "initial");
-    } catch {
-      return false;
-    }
+    return CSS.supports(entry.target, "initial");
   },
 
   /* css.properties.foo.bar_value -> a specific declared value. */
   cssValue(entry) {
-    try {
-      return CSS.supports(entry.target, entry.member);
-    } catch {
-      return false;
-    }
+    return CSS.supports(entry.target, entry.member);
   }
 });
 
@@ -312,6 +290,7 @@ export async function collectBcdSurface(options = {}) {
     const manifestUrl = options.manifestUrl || "./data/feature-manifest.json";
 
     let manifest;
+    let manifestSha256;
     try {
       const response = await fetch(manifestUrl, { cache: "no-store" });
       if (!response.ok) {
@@ -320,7 +299,13 @@ export async function collectBcdSurface(options = {}) {
             "run `npm run build:truth` first"
         );
       }
-      manifest = await response.json();
+      const bytes = await response.arrayBuffer();
+      const digest = await crypto.subtle.digest("SHA-256", bytes);
+      manifestSha256 = Array.from(new Uint8Array(digest), b => b.toString(16).padStart(2, "0")).join("");
+      if (options.expectedManifestSha256 && manifestSha256 !== options.expectedManifestSha256) {
+        return unavailable("The feature list does not match this experiment version. Restore the frozen list before collecting data.");
+      }
+      manifest = JSON.parse(new TextDecoder().decode(bytes));
     } catch (error) {
       return unavailable(
         `feature manifest unreadable (${(error && error.message) || error}). This module needs ` +
@@ -335,24 +320,34 @@ export async function collectBcdSurface(options = {}) {
 
     const present = {};
     const detail = {};
+    const errors = {};
     let supported = 0;
     let skipped = 0;
+    let unknown = 0;
 
     const started = performance.now();
 
     for (const entry of entries) {
       const probe = PROBES[entry.kind];
 
-      if (!probe) {
+      // Keep every ID. These entries cannot establish presence from a page.
+      if (!probe || entry.context || entry.unreliable) {
+        present[entry.id] = null;
+        errors[entry.id] = entry.context ? "Requires a different execution context"
+          : entry.unreliable ? "This presence check is unreliable" : "Unknown check kind";
         skipped += 1;
+        unknown += 1;
         continue;
       }
 
       let outcome;
       try {
         outcome = probe(entry);
-      } catch {
-        outcome = false;
+      } catch (error) {
+        present[entry.id] = null;
+        errors[entry.id] = String((error && error.message) || error);
+        unknown += 1;
+        continue;
       }
 
       /*
@@ -378,20 +373,24 @@ export async function collectBcdSurface(options = {}) {
     return ok(
       {
         manifest: {
+          sha256: manifestSha256,
           version: nullish(manifest.manifestVersion, null),
           bcdVersion: nullish(manifest.bcdVersion, null),
           generatedAt: nullish(manifest.generatedAt, null),
           mode: nullish(manifest.mode, null)
         },
         counts: {
+          total: entries.length,
           probed: entries.length - skipped,
+          unknown,
           skipped,
           supported,
-          absent: entries.length - skipped - supported
+          absent: entries.length - unknown - supported
         },
         elapsedMs: Math.round(elapsedMs),
         present,
-        detail
+        detail,
+        errors
       },
       "Feature presence against the MDN browser-compat-data manifest. " +
         "Presence is a property of the engine build, not of the advertised " +

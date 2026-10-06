@@ -1,43 +1,15 @@
 "use strict";
 
-/*
- * runner.js
- * ---------
- * Orchestrates every probe family into one result document per browser
- * configuration, and records the *persona* the browser advertises alongside
- * the raw surface it actually exposes.
- *
- * The persona block is what makes the offline comparison possible. A probe
- * result on its own says "SomeFeature is present". Only together with
- * "this browser claims to be Chrome 120 on Windows" does that become
- * "claims 120, but exposes an API that shipped in 131".
- *
- * COLLECTION ONLY. Nothing here decides whether a browser is genuine.
- */
+/* Fixed PI tests plus MDN feature collection. Browser identity is metadata and never
+ * selects the checklist. Change the experiment version when changing checks. */
+export const EXPERIMENT = Object.freeze({
+  id: "pi-suite-v2",
+  context: "window (text also checks a worker)",
+  featureCount: 10396,
+  bcdVersion: "7.3.17",
+  manifestSha256: "6dd8992ce326416f8535651641eec086e77e41fe26897335d9bf466e5198520d"
+});
 
-/*
- * Families are loaded with dynamic import() at run time rather than static
- * imports at the top of this file, and that is deliberate.
- *
- * With static imports, the seven probe modules form one module graph: if any
- * single module fails to parse or throws while evaluating — which is exactly
- * what happens when a module written against Chromium is opened in Firefox —
- * the whole graph fails, this file never evaluates, and the page's click
- * handler is never attached. The symptom is a button that does nothing and no
- * indication of why.
- *
- * Loading each family separately means a module that is broken in one engine
- * costs you that one family, reported as `unavailable` with the reason
- * attached, while the other six still produce data. For a study that
- * deliberately runs the same code across different engines, that isolation is
- * not a nicety.
- */
-/*
- * No optional chaining or nullish coalescing in this file, for the same reason
- * as index.html: a parse error here is fatal to the entire run, and this is
- * the module that reports which OTHER modules an engine could not handle. It
- * has to outlive them. See the note in index.html.
- */
 const nullish = (value, fallback) => (value === null || value === undefined) ? fallback : value;
 const message = error => String((error && error.message) || error);
 
@@ -67,10 +39,10 @@ function withTimeout(promise, ms, label) {
     timer = setTimeout(
       () => resolve({
         status: "unavailable",
-        reason:
-          `${label} did not finish within ${ms} ms and was abandoned. This ` +
-          "usually means a platform query returned a promise that never " +
-          "settles, rather than the probe being slow."
+        timedOut: true,
+        collectionOutcome: "timed_out",
+        reason: `${label} did not return within the ${ms} ms waiting limit. ` +
+          "Support is unknown. This is a collection limit, not evidence that a feature is absent."
       }),
       ms
     );
@@ -80,20 +52,59 @@ function withTimeout(promise, ms, label) {
 }
 
 export const FAMILIES = Object.freeze([
-  { id: "engineSurface", label: "Engine / build surface", module: "./engine-surface.js", export: "collectEngineSurface" },
-  { id: "bcdSurface", label: "BCD feature surface", module: "./bcd-surface.js", export: "collectBcdSurface" },
-  { id: "bcdSurfaceWorker", label: "BCD feature surface (worker)", module: "./worker-surface.js", export: "collectBcdSurfaceWorker" },
-  { id: "bcdSurfaceIframe", label: "BCD feature surface (iframe)", module: "./iframe-surface.js", export: "collectBcdSurfaceIframe", timeoutMs: 120000 },
-  { id: "bcdSurfaceServiceWorker", label: "BCD feature surface (service worker)", module: "./sw-surface.js", export: "collectBcdSurfaceServiceWorker", timeoutMs: 150000 },
-  { id: "nativeIntegrity", label: "Native function integrity", module: "./native-integrity.js", export: "collectNativeIntegrity" },
-  { id: "webgpu", label: "WebGPU adapter surface", module: "./webgpu-surface.js", export: "collectWebgpu" },
-  { id: "capabilities", label: "Categorical capabilities", module: "./categorical-capabilities.js", export: "collectCategoricalCapabilities" },
-  { id: "capabilityVerify", label: "Claimed vs actual capability", module: "./capability-verify.js", export: "collectCapabilityVerify", timeoutMs: 60000 },
-  { id: "audio", label: "Audio", module: "./audio.js", export: "collectAudio" },
-  { id: "media", label: "Media", module: "./media.js", export: "collectMedia" },
+  { id: "engineSurface", label: "Engine / build", module: "./engine-surface.js", export: "collectEngineSurface" },
+  { id: "bcdSurface", label: "MDN feature checklist", module: "./bcd-surface.js", export: "collectBcdSurface" },
+  { id: "capabilities", label: "Reported capabilities", module: "./categorical-capabilities.js", export: "collectCategoricalCapabilities" },
+  { id: "audio", label: "Audio rendering", module: "./audio.js", export: "collectAudio" },
+  { id: "media", label: "Reported media support", module: "./media.js", export: "collectMedia" },
   { id: "text", label: "Text rendering", module: "./text.js", export: "collectTextRendering" },
-  { id: "videoDecode", label: "Video decode", module: "./video-decode.js", export: "collectVideoDecode" }
-]);
+  { id: "videoDecode", label: "Video decoding", module: "./video-decode.js", export: "collectVideoDecode", timeoutMs: 300000 }
+].map(family => Object.freeze(family)));
+
+// Preconditions describe whether a test can run, never select another test.
+function unavailableReason(id) {
+  if (id === "audio" && typeof OfflineAudioContext !== "function") return "Offline audio rendering is not available";
+  if (id === "audio" && !(globalThis.crypto && crypto.subtle)) return "Audio hashing is not available; use HTTPS";
+  if (id === "media" && !(navigator.mediaCapabilities && typeof navigator.mediaCapabilities.decodingInfo === "function")) return "Media capability queries are not available";
+  if (id === "videoDecode" && (typeof VideoDecoder !== "function" || typeof EncodedVideoChunk !== "function")) return "WebCodecs video decoding is not available";
+  return null;
+}
+
+async function runFamily(family) {
+  const reason = unavailableReason(family.id);
+  if (reason) return { status: "unavailable", collectionOutcome: "api_absent", reason };
+  const loaded = await loadFamily(family);
+  if (loaded.error) return { status: "unavailable", collectionOutcome: "test_error", reason: loaded.error };
+  const options = family.id === "bcdSurface"
+    ? { expectedManifestSha256: EXPERIMENT.manifestSha256 } : {};
+  const result = await loaded.collector(options);
+  if (!result || !["ok", "failed", "unavailable"].includes(result.status)) {
+    throw new Error("Collector returned an invalid result");
+  }
+  return result;
+}
+
+// Collection outcomes never replace or reinterpret individual feature answers.
+export const OUTCOME_LABELS = Object.freeze({
+  results_returned: "Results returned",
+  api_absent: "Required API absent",
+  timed_out: "Timed out — support unknown",
+  test_error: "Test / loading error",
+  not_attempted: "Not attempted"
+});
+
+function collectionRecord(probe, family) {
+  const outcome = probe.timedOut ? "timed_out" : probe.collectionOutcome ||
+    (probe.status === "ok" ? "results_returned" : "test_error");
+  return {
+    outcome,
+    reason: probe.reason || probe.error || (probe.status === "ok"
+      ? "The group returned a report; individual checks may still be unsupported, inconclusive, or report errors."
+      : "The test could not produce a report; this does not establish feature absence."),
+    timeoutMs: family.timeoutMs || FAMILY_TIMEOUT_MS,
+    elapsedMs: probe.elapsedMs
+  };
+}
 
 /**
  * Load one family's collector. Returns the function, or a description of why
@@ -288,25 +299,46 @@ async function collectPersona() {
 }
 
 /**
- * Run every probe family.
+ * Run every group in the fixed suite; browser claims never select groups.
  *
  * @param {object}   options
  * @param {string}   options.label      Name for this configuration, e.g. "gologin-default".
- * @param {string[]} options.only       Family ids to run; omit for all.
  * @param {Function} options.onProgress Called as ({ index, total, family, status }).
  */
 export async function runAll(options = {}) {
-  const { label = "unlabelled", only = null, onProgress = () => {} } = options;
+  const { label = "unlabelled", onProgress = () => {} } = options;
 
-  const families = only ? FAMILIES.filter(f => only.includes(f.id)) : FAMILIES;
+  const families = FAMILIES;
 
   const document_ = {
-    schema: "browser-engine-tests/result@1",
+    schema: "browser-engine-tests/result@2",
+    experiment: EXPERIMENT,
     label,
     collectedAt: new Date().toISOString(),
-    persona: await collectPersona(),
+    persona: null,
+    suite: FAMILIES.map(f => ({ id: f.id, timeoutMs: f.timeoutMs || FAMILY_TIMEOUT_MS })),
+    timeoutPolicy: {
+      status: "provisional-pilot",
+      basis: "Operational waiting limits, not validated thresholds for feature support",
+      scope: "Whole group including module loading; the same group has the same limit in every browser",
+      identityTimeoutMs: 10000
+    },
+    collection: {},
     probes: {}
   };
+
+  for (const family of families) {
+    document_.collection[family.id] = {
+      outcome: "not_attempted", reason: "This scheduled group has not started",
+      timeoutMs: family.timeoutMs || FAMILY_TIMEOUT_MS, elapsedMs: null
+    };
+  }
+
+  try {
+    document_.persona = await withTimeout(collectPersona(), 10000, "Browser identity");
+  } catch (error) {
+    document_.persona = { status: "unavailable", reason: message(error) };
+  }
 
   let index = 0;
 
@@ -316,34 +348,27 @@ export async function runAll(options = {}) {
 
     const started = performance.now();
 
-    const { collector, error: loadError } = await loadFamily(family);
-
-    if (loadError) {
-      document_.probes[family.id] = { status: "unavailable", reason: loadError };
-    } else {
-      try {
-        /*
-         * Families are run in sequence, not in parallel. Several of them time
-         * things or contend for the audio/video pipeline, and running them
-         * concurrently would let one family's load perturb another's numbers.
-         */
-        document_.probes[family.id] = await withTimeout(
-          Promise.resolve(collector()),
-          family.timeoutMs || FAMILY_TIMEOUT_MS,
-          family.label
-        );
-      } catch (error) {
-        document_.probes[family.id] = {
-          status: "failed",
-          error: message(error)
-        };
-      }
+    try {
+      // The budget covers loading AND collection. A timed-out asynchronous
+      // collector cannot be cancelled here; retain that fact in the result.
+      document_.probes[family.id] = await withTimeout(
+        runFamily(family), family.timeoutMs || FAMILY_TIMEOUT_MS, family.label
+      );
+    } catch (error) {
+      document_.probes[family.id] = { status: "failed", error: message(error) };
     }
 
     document_.probes[family.id].elapsedMs = Math.round(performance.now() - started);
 
-    onProgress({ index, total: families.length, family, status: "done" });
+    document_.collection[family.id] = collectionRecord(document_.probes[family.id], family);
+    onProgress({ index, total: families.length, family, status: "done", collection: document_.collection[family.id] });
   }
 
+  document_.collectionSummary = { scheduled: families.length };
+  for (const outcome of Object.keys(OUTCOME_LABELS)) {
+    document_.collectionSummary[outcome] = families.filter(f => document_.collection[f.id].outcome === outcome).length;
+  }
+  document_.requiresReload = Object.values(document_.probes).some(p => p.timedOut === true)
+    || document_.persona.timedOut === true;
   return document_;
 }

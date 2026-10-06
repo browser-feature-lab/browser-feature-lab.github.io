@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Browser engine surface probe</title>
+<title>Browser test suite</title>
 <style>
   :root {
     color-scheme: light dark;
@@ -48,7 +48,7 @@
   button[disabled] { opacity: 0.45; cursor: default; }
   ol.families { list-style: none; padding: 0; margin: 0; }
   ol.families li {
-    display: flex; align-items: center; gap: 10px;
+    display: flex; flex-wrap: wrap; align-items: center; gap: 10px;
     padding: 7px 0; border-bottom: 1px solid var(--line); font-size: 14px;
   }
   ol.families li:last-child { border-bottom: 0; }
@@ -56,6 +56,7 @@
   .dot.running { background: var(--warn); }
   .dot.done { background: var(--ok); }
   .dot.failed { background: var(--bad); }
+  .reason { flex-basis: 100%; margin-left: 18px; color: var(--muted); font-size: 12.5px; }
   .tag { margin-left: auto; color: var(--muted); font-size: 12px; font-variant-numeric: tabular-nums; }
   dl.persona { display: grid; grid-template-columns: 150px 1fr; gap: 5px 14px; margin: 0; font-size: 13.5px; }
   dl.persona dt { color: var(--muted); }
@@ -76,10 +77,14 @@
 <body>
 <main>
   <div class="fatal" id="fatal" hidden></div>
-  <h1>Browser engine surface probe</h1>
+  <h1>Browser test suite</h1>
   <p class="sub">
-    Runs every probe family once and records the result for this browser
-    configuration. Collection only &mdash; nothing here judges the browser.
+    The same seven test groups for every browser: engine, MDN features,
+    reported capabilities, audio, media, text, and video. Download one results file.
+    <br>Experiment: <code>pi-suite-v2</code>. Every group records a collection outcome and reason.
+    Video testing can take several minutes. Results are observations, not a pass/fail verdict.
+    <br>A timeout means “no answer within the waiting limit,” never “feature absent.”
+    Waiting limits are provisional for the pilot and are identical across browsers for each test.
   </p>
 
   <div class="card">
@@ -89,7 +94,7 @@
     </label>
     <input type="text" id="label" autocomplete="off" spellcheck="false" placeholder="browser-profile-config">
     <div class="row">
-      <button id="run">Run probes</button>
+      <button id="run">Run all tests</button>
       <button id="download" class="secondary" disabled>Download JSON</button>
     </div>
     <div class="warnbox" id="warn" hidden></div>
@@ -157,7 +162,7 @@
 </script>
 
 <script type="module">
-import { runAll, FAMILIES } from "./runner.js";
+import { runAll, FAMILIES, OUTCOME_LABELS } from "./runner.js";
 
 /* Signals to the guard above that the module graph evaluated. */
 window.__probeReady = true;
@@ -181,6 +186,7 @@ const runButton = $("run");
 const downloadButton = $("download");
 
 let lastResult = null;
+let requiresReload = false;
 
 /* Suggest a label from the persona so unlabelled runs are still identifiable. */
 {
@@ -205,7 +211,7 @@ if (location.protocol === "file:") {
   warn.hidden = false;
   warn.textContent =
     "Opened over file:// — ES modules and the feature manifest will not load. " +
-    "Serve the folder instead: npm run serve";
+    "Open the hosted HTTPS website instead.";
 }
 
 function paintFamilies() {
@@ -216,12 +222,18 @@ function paintFamilies() {
     li.innerHTML =
       `<span class="dot" data-dot="${family.id}"></span>` +
       `<span>${family.label}</span>` +
-      `<span class="tag" data-tag="${family.id}">queued</span>`;
+      `<span class="tag" data-tag="${family.id}">queued</span>` +
+      `<span class="reason" data-reason="${family.id}" hidden></span>`;
     list.appendChild(li);
   }
 }
 
 function paintPersona(persona) {
+  if (!persona || !persona.claimed) {
+    $("persona").textContent = "Browser identity unavailable: " + ((persona && persona.reason) || "unknown error");
+    $("personaCard").hidden = false;
+    return;
+  }
   const claimed = persona.claimed.resolved;
   const rows = [
     ["Claimed browser", claimed.name ? `${claimed.name} ${claimed.version}` : "unknown"],
@@ -251,21 +263,6 @@ function paintPersona(persona) {
   $("personaCard").hidden = false;
 }
 
-async function postResult(result) {
-  try {
-    const response = await fetch("./collect", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify(result)
-    });
-    if (!response.ok) return { saved: false, reason: `HTTP ${response.status}` };
-    const body = await response.json();
-    return { saved: true, path: body.path };
-  } catch (error) {
-    return { saved: false, reason: message(error) };
-  }
-}
-
 runButton.addEventListener("click", async () => {
   runButton.disabled = true;
   downloadButton.disabled = true;
@@ -275,59 +272,61 @@ runButton.addEventListener("click", async () => {
 
   const label = labelInput.value.trim() || labelInput.placeholder;
 
-  /* ?only=engineSurface,bcdSurface narrows the run while debugging. */
-  const onlyParam = new URLSearchParams(location.search).get("only");
-  const only = onlyParam ? onlyParam.split(",").map(s => s.trim()).filter(Boolean) : null;
+  try {
+    const result = await runAll({
+      label,
+      onProgress({ family, status, collection }) {
+        const dot = document.querySelector(`[data-dot="${family.id}"]`);
+        const tag = document.querySelector(`[data-tag="${family.id}"]`);
+        if (!dot || !tag) return;
+        dot.className = `dot ${status === "running" ? "running" : collection.outcome === "results_returned" ? "done" : "failed"}`;
+        tag.textContent = status === "running" ? "running…" : OUTCOME_LABELS[collection.outcome];
+        if (collection) {
+          tag.title = collection.reason;
+          const explanation = document.querySelector(`[data-reason="${family.id}"]`);
+          explanation.textContent = collection.reason;
+          explanation.hidden = collection.outcome === "results_returned";
+        }
+      }
+    });
 
-  const result = await runAll({
-    label,
-    only,
-    onProgress({ family, status }) {
-      const dot = document.querySelector(`[data-dot="${family.id}"]`);
+    for (const family of FAMILIES) {
+      const record = result.collection[family.id];
       const tag = document.querySelector(`[data-tag="${family.id}"]`);
-      if (!dot || !tag) return;
-      dot.className = `dot ${status === "running" ? "running" : "done"}`;
-      tag.textContent = status === "running" ? "running…" : "done";
+      if (tag) {
+        tag.textContent = OUTCOME_LABELS[record.outcome];
+        tag.title = record.reason;
+      }
     }
-  });
 
-  /* Reflect any family that reported failure, after the fact. */
-  for (const family of FAMILIES) {
-    const probe = result.probes[family.id];
-    const dot = document.querySelector(`[data-dot="${family.id}"]`);
-    const tag = document.querySelector(`[data-tag="${family.id}"]`);
-    if (!probe || !dot) continue;
-    if (probe.status === "failed") {
-      dot.className = "dot failed";
-      tag.textContent = "failed";
-    } else if (probe.status === "unavailable") {
-      dot.className = "dot failed";
-      tag.textContent = "unavailable";
-    } else {
-      tag.textContent = `${probe.elapsedMs} ms`;
-    }
+    lastResult = result;
+    requiresReload = result.requiresReload;
+    paintPersona(result.persona);
+
+    const status = $("status");
+    const bcd = result.probes.bcdSurface;
+
+    const counts = result.collectionSummary;
+    const mdn = bcd && bcd.status === "ok"
+      ? ` MDN: ${bcd.value.counts.supported} present, ${bcd.value.counts.absent} absent, ${bcd.value.counts.unknown} could not check.` : "";
+    status.className = "status";
+    status.textContent = `${counts.scheduled} groups scheduled: ${counts.results_returned} returned results, ` +
+      `${counts.api_absent} required API absent, ${counts.timed_out} timed out, ` +
+      `${counts.test_error} test/loading errors, ${counts.not_attempted} not attempted. ` +
+      "Returned results do not mean every feature worked. Timeouts do not count as missing features." + mdn +
+      " Download JSON to save this run." +
+      (requiresReload ? " A test timed out and may still be running. Keep this run for review and reload before retrying." : "");
+
+    $("resultCard").hidden = false;
+    downloadButton.disabled = false;
+  } catch (error) {
+    lastResult = null;
+    $("status").className = "status bad";
+    $("status").textContent = "Could not complete this run: " + message(error);
+    $("resultCard").hidden = false;
+  } finally {
+    runButton.disabled = requiresReload;
   }
-
-  lastResult = result;
-  paintPersona(result.persona);
-
-  const saved = await postResult(result);
-  const status = $("status");
-  const bcd = result.probes.bcdSurface;
-
-  const summary = (bcd && bcd.status === "ok")
-    ? bcd.value.counts.supported + " of " + bcd.value.counts.probed + " manifest features present."
-    : "BCD surface " + ((bcd && bcd.status) || "missing") +
-      ((bcd && bcd.reason) ? " — " + bcd.reason : "") + ".";
-
-  status.className = `status ${saved.saved ? "ok" : "bad"}`;
-  status.textContent = saved.saved
-    ? `Saved to ${saved.path}. ${summary}`
-    : `Not saved automatically (${saved.reason}) — use Download JSON. ${summary}`;
-
-  $("resultCard").hidden = false;
-  runButton.disabled = false;
-  downloadButton.disabled = false;
 });
 
 if (new URLSearchParams(location.search).get("autorun") === "1") {
@@ -340,7 +339,7 @@ downloadButton.addEventListener("click", () => {
   const url = URL.createObjectURL(blob);
   const anchor = document.createElement("a");
   anchor.href = url;
-  anchor.download = `${lastResult.label}.json`;
+  anchor.download = `${lastResult.label}__${lastResult.collectedAt.replace(/[:.]/g, "-")}.json`;
   anchor.click();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 });
