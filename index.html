@@ -56,6 +56,8 @@
   .dot.running { background: var(--warn); }
   .dot.done { background: var(--ok); }
   .dot.failed { background: var(--bad); }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th, td { text-align: left; padding: 8px; border-bottom: 1px solid var(--line); }
   .reason { flex-basis: 100%; margin-left: 18px; color: var(--muted); font-size: 12.5px; }
   .tag { margin-left: auto; color: var(--muted); font-size: 12px; font-variant-numeric: tabular-nums; }
   dl.persona { display: grid; grid-template-columns: 150px 1fr; gap: 5px 14px; margin: 0; font-size: 13.5px; }
@@ -79,9 +81,9 @@
   <div class="fatal" id="fatal" hidden></div>
   <h1>Browser test suite</h1>
   <p class="sub">
-    The same seven test groups for every browser: engine, MDN features,
-    reported capabilities, audio, media, text, and video. Download one results file.
-    <br>Experiment: <code>pi-suite-v2</code>. Every group records a collection outcome and reason.
+    The same eight test groups for every browser: engine, MDN features,
+    reported capabilities, audio, media, text, video, and independent video validation. Download one results file.
+    <br>Experiment: <code>pi-suite-v3</code>. Every group records a collection outcome and reason.
     Video testing can take several minutes. Results are observations, not a pass/fail verdict.
     <br>A timeout means “no answer within the waiting limit,” never “feature absent.”
     Waiting limits are provisional for the pilot and are identical across browsers for each test.
@@ -102,6 +104,12 @@
 
   <div class="card" id="progress" hidden>
     <ol class="families" id="families"></ol>
+  </div>
+
+  <div class="card" id="validationCard" hidden>
+    <label>Independent video validation</label>
+    <p class="hint">We record the claim, then attempt the same sample three times even if the claim is “unsupported.” A timeout or decoding error does not establish general codec support.</p>
+    <table><thead><tr><th>Sample</th><th>Reported support</th><th>Actual decoding attempts</th></tr></thead><tbody id="validationRows"></tbody></table>
   </div>
 
   <div class="card" id="personaCard" hidden>
@@ -263,11 +271,33 @@ function paintPersona(persona) {
   $("personaCard").hidden = false;
 }
 
+function paintValidation(probe) {
+  const rows = $("validationRows");
+  rows.innerHTML = "";
+  const codecs = probe && probe.value && probe.value.codecs;
+  $("validationCard").hidden = !codecs;
+  if (!codecs) return;
+  const labels = { decoded: "decoded", error: "decoding error", timed_out: "timed out", api_absent: "API absent" };
+  for (const codec of codecs) {
+    const row = document.createElement("tr");
+    const claim = codec.claim.status === "answered" ? (codec.claim.supported ? "Supported" : "Unsupported")
+      : codec.claim.status === "timed_out" ? "Timed out — unknown" : "Unknown (" + codec.claim.status + ")";
+    const attempts = codec.actual.repetitions.map((r, i) => `${i + 1}: ${labels[r.status] || r.status}`).join("; ");
+    for (const value of [codec.id, claim, attempts]) {
+      const cell = document.createElement("td");
+      cell.textContent = value;
+      row.appendChild(cell);
+    }
+    rows.appendChild(row);
+  }
+}
+
 runButton.addEventListener("click", async () => {
   runButton.disabled = true;
   downloadButton.disabled = true;
   $("progress").hidden = false;
   $("resultCard").hidden = true;
+  $("validationCard").hidden = true;
   paintFamilies();
 
   const label = labelInput.value.trim() || labelInput.placeholder;
@@ -302,6 +332,7 @@ runButton.addEventListener("click", async () => {
     lastResult = result;
     requiresReload = result.requiresReload;
     paintPersona(result.persona);
+    paintValidation(result.probes.videoValidation);
 
     const status = $("status");
     const bcd = result.probes.bcdSurface;
