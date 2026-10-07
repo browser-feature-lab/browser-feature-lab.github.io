@@ -3,7 +3,7 @@
 /* Fixed PI tests plus MDN feature collection. Browser identity is metadata and never
  * selects the checklist. Change the experiment version when changing checks. */
 export const EXPERIMENT = Object.freeze({
-  id: "pi-suite-v3",
+  id: "pi-suite-v4",
   context: "window (text also checks a worker)",
   featureCount: 10396,
   bcdVersion: "7.3.17",
@@ -59,7 +59,7 @@ export const FAMILIES = Object.freeze([
   { id: "media", label: "Reported media support", module: "./media.js", export: "collectMedia" },
   { id: "text", label: "Text rendering", module: "./text.js", export: "collectTextRendering" },
   { id: "videoDecode", label: "Video decoding", module: "./video-decode.js", export: "collectVideoDecode", timeoutMs: 300000 },
-  { id: "videoValidation", label: "Independent video validation", module: "./video-validation.js", export: "collectVideoValidation", timeoutMs: 180000 }
+  { id: "videoValidation", label: "Claim vs. actual validation", module: "./video-validation.js", export: "collectVideoValidation", timeoutMs: 180000 }
 ].map(family => Object.freeze(family)));
 
 // Preconditions describe whether a test can run, never select another test.

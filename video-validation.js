@@ -1,5 +1,5 @@
 "use strict";
-// Independent claim/decoding validation. The embedded inputs below are copied
+// Claim vs. actual validation. The embedded inputs below are copied
 // unchanged from the PI's video-decode.js; that original file is not modified.
 // No support-query answer selects or suppresses a decoding attempt.
 const SETTINGS = Object.freeze({ repetitions: 3, frames: 4, intervalUs: 250000,
@@ -135,14 +135,14 @@ export async function collectVideoValidation() {
     const decodeOutcome = statuses.length === 1 ? statuses[0] : "mixed";
     codecs.push({ id: stream.id, requestedConfig: stream.config, claim,
       actual: { outcome: decodeOutcome, repetitions },
-      comparison: claim.status !== "answered" ? "claim_unknown"
-        : decodeOutcome === "decoded" ? (claim.supported ? "claim_yes_decode_yes" : "claim_no_decode_yes")
-        : "inconclusive" });
+      comparison: decodeOutcome !== "decoded" ? "validation_unknown"
+        : claim.status !== "answered" ? "claim_unknown_validation_yes"
+        : claim.supported ? "claim_yes_validation_yes" : "claim_no_validation_yes" });
   }
   const apiAbsent = typeof VideoDecoder !== "function" || typeof EncodedVideoChunk !== "function";
   return { status: apiAbsent ? "unavailable" : "ok",
     ...(apiAbsent ? { collectionOutcome: "api_absent", reason: "Decoding API not exposed" } : {}),
-    value: { revision: 1, settings: SETTINGS, codecs },
+    value: { revision: 2, settings: SETTINGS, codecs },
     detail: "Support claims and decoding attempts are independent. Decoded means the expected frames, timestamps and dimensions were returned, not that pixel correctness was verified. Errors and timeouts are inconclusive about general codec support. No browser authenticity verdict.",
     confidence: "low" };
 }

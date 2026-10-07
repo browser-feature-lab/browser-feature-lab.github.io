@@ -82,9 +82,11 @@
   <h1>Browser test suite</h1>
   <p class="sub">
     The same eight test groups for every browser: engine, MDN features,
-    reported capabilities, audio, media, text, video, and independent video validation. Download one results file.
-    <br>Experiment: <code>pi-suite-v3</code>. Every group records a collection outcome and reason.
+    reported capabilities, audio, media, text, video, and claim vs. actual validation. Download one results file.
+    <br>Experiment: <code>pi-suite-v4</code>. Every group records a collection outcome and reason.
     Video testing can take several minutes. Results are observations, not a pass/fail verdict.
+    <br>Claim vs. actual validation asks whether the browser says it supports H.264, VP9 and AV1,
+    then independently tries the same fixed video samples—even when the browser says no.
     <br>A timeout means “no answer within the waiting limit,” never “feature absent.”
     Waiting limits are provisional for the pilot and are identical across browsers for each test.
   </p>
@@ -107,9 +109,9 @@
   </div>
 
   <div class="card" id="validationCard" hidden>
-    <label>Independent video validation</label>
-    <p class="hint">We record the claim, then attempt the same sample three times even if the claim is “unsupported.” A timeout or decoding error does not establish general codec support.</p>
-    <table><thead><tr><th>Sample</th><th>Reported support</th><th>Actual decoding attempts</th></tr></thead><tbody id="validationRows"></tbody></table>
+    <label>Claim vs. actual validation</label>
+    <p class="hint">Claim: does the browser say yes or no? Validation: does it return the expected frames? We try each fixed sample three times, even when the claim is no. Errors, timeouts, missing APIs and mixed results mean validation is unknown. Success checks frame count, timestamps and dimensions, not pixel correctness.</p>
+    <table><thead><tr><th>Sample</th><th>Claim</th><th>Actual decoding attempts</th><th>Comparison</th></tr></thead><tbody id="validationRows"></tbody></table>
   </div>
 
   <div class="card" id="personaCard" hidden>
@@ -278,12 +280,18 @@ function paintValidation(probe) {
   $("validationCard").hidden = !codecs;
   if (!codecs) return;
   const labels = { decoded: "decoded", error: "decoding error", timed_out: "timed out", api_absent: "API absent" };
+  const comparisons = {
+    claim_yes_validation_yes: "Claim yes / validation yes",
+    claim_no_validation_yes: "Claim no / validation yes",
+    claim_unknown_validation_yes: "Claim unknown / validation yes",
+    validation_unknown: "Validation unknown"
+  };
   for (const codec of codecs) {
     const row = document.createElement("tr");
     const claim = codec.claim.status === "answered" ? (codec.claim.supported ? "Supported" : "Unsupported")
       : codec.claim.status === "timed_out" ? "Timed out — unknown" : "Unknown (" + codec.claim.status + ")";
     const attempts = codec.actual.repetitions.map((r, i) => `${i + 1}: ${labels[r.status] || r.status}`).join("; ");
-    for (const value of [codec.id, claim, attempts]) {
+    for (const value of [codec.id, claim, attempts, comparisons[codec.comparison] || codec.comparison]) {
       const cell = document.createElement("td");
       cell.textContent = value;
       row.appendChild(cell);

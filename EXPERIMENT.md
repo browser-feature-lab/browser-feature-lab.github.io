@@ -1,12 +1,18 @@
-# pi-suite-v3 — independent video validation pilot
+# pi-suite-v4 — Claim vs. actual validation pilot
 
 Upload this package's contents to the publishing root of
 https://github.com/browser-feature-lab/browser-feature-lab.github.io
 The website address remains https://browser-feature-lab.github.io/.
 Do not upload to Mashequr/browser-test-site. Preserve the data folder.
-No remote changes were made when preparing this package.
 
-## What changed
+## What changed in v4
+
+The existing videoValidation family is now presented as **Claim vs. actual validation**.
+Only presentation, comparison labels and version metadata changed. The decoding
+procedure, fixed samples, configurations, repetitions, order and limits remain v3's.
+The collector revision is now 2; its claim and actual records remain unchanged.
+
+## Existing fixed procedure
 
 The original seven groups remain in the same order: engineSurface, bcdSurface,
 capabilities, audio, media, text, videoDecode. An eighth group, videoValidation,
@@ -35,8 +41,13 @@ This confirms frame production, not pixel correctness. Frames are closed promptl
 and the decoder is closed after success, error or timeout. A decoding error does
 not prove general lack of codec support. A timeout is inconclusive.
 
-The comparison may report claim_yes_decode_yes, claim_no_decode_yes,
-claim_unknown or inconclusive. Mixed repetition results are retained as mixed.
+The comparison reports claim_yes_validation_yes or claim_no_validation_yes when
+all three repetitions decode successfully and the claim is known. A successful
+validation with an unavailable claim reports claim_unknown_validation_yes.
+All other outcomes report validation_unknown, including errors, timeouts, absent
+APIs and mixed repetitions. The existing decoder has no definitive validation
+failure outcome, so no error is relabelled as validation_failed.
+Mixed repetition results are retained as mixed.
 These are observations, not an accusation of spoofing or proof of the cause.
 Do not score an error or timeout as an unsupported codec.
 
@@ -59,8 +70,8 @@ Use collection[groupId].outcome for group coverage: results_returned, api_absent
 timed_out, test_error, not_attempted. These counts add to eight scheduled groups.
 Results returned means a report exists, not that all nested checks passed.
 Individual claims, attempts, errors and timeouts stay under probes.
-The JSON result schema remains result@2; experiment ID is now pi-suite-v3.
-Do not combine v2 and v3 as if they used the same procedure.
+The JSON result schema remains result@2; experiment ID is now pi-suite-v4.
+Keep experiment versions separate when analyzing their results.
 
 ## MDN and file preservation
 
@@ -73,31 +84,13 @@ page in code/browser-engine-tests is not the publishing source for this version.
 
 ## Verification and next pilot
 
-Automated tests (using simulated browser APIs, not real-browser execution) passed:
-exact sample/configuration equality; false/error/timed-out/missing claim queries
-still followed by decoding; 36 frames attempted for all three samples; API absence;
-constructor/configuration/callback failures; incomplete and wrong-timestamp frames;
-decoding timeouts; cleanup; eight-group order and counts; unchanged PI files;
-page script syntax. No real-browser run of v3 has yet been collected.
+V4 sanity checks use simulated browser APIs to check independent decoding after
+false, errored, timed-out or absent claims; explicit comparisons; decoding errors,
+timeouts and missing APIs; fixed suite settings; script syntax; and unchanged PI
+files and samples. These checks do not replace real-browser pilots.
 
-1. Upload to the correct repository above and wait for the website to show pi-suite-v3.
-2. Run Safari with label safari-mac-v3-pilot-1 and download the JSON.
-3. Inspect videoValidation's claim and actual outcomes, not only the green group labels.
-4. Repeat the small pilot twice per browser (Chrome, Firefox, Safari) with fresh
-   page loads and unique labels. Keep every attempted run, including failures.
-5. Review differences before freezing this version for full research collection.
-
-## Candidate file hashes
-
-31787ddc84f72cb540b0008cb4593d486a73cb7aa0455bf3036140a631d9c495  index.html
-73cc3b18e62fba51440645d53d77bf66e71867b8eff6dadf6081b1fad4cd860a  runner.js
-99e40623a866432efc8948b4e3f0519e0c753e7480dbe0f20da2f9d8d45f6e03  bcd-surface.js
-6dd8992ce326416f8535651641eec086e77e41fe26897335d9bf466e5198520d  data/feature-manifest.json
-c5c15827851b9022fb4d983dd412f493c0639973a1dc9d80fb0976dafbb62b76  engine-surface.js
-631a25e85dae8d3538e9d464af6d83545c349ccc64a5b3f779fc872c0e45f68c  categorical-capabilities.js
-5d221d96b5fabe45b4252f07cbff045f550efa5751e823b332acb9285966407d  audio.js
-9aaffe1c2c8a352ae901d52db372e27bfe2e6717f995588c9764fdd894b2083b  media.js
-025a5f818fc3623fc7f73d2139b5c59ec4e51ab57790c30c0fb773af0c46c0ce  text.js
-e1ef0d4375819ad1ccf0fc8b580fdc8138a73924e81d9f0c63fdc89d7e7203dc  video-decode.js
-ce779f3908b241356fa99ad926aefeb093e3f4713d4028538f77f4b9723bc88e  common.js
-0d2301b4943b548d0191816d428d1774b3928e0b786dab4aee6ee514425172d0  video-validation.js
+1. Confirm the published website shows pi-suite-v4.
+2. Run one Chrome, one Firefox and one Safari pilot with fresh page loads and
+   unique labels, then download each JSON file.
+3. Review videoValidation's claims, attempts and comparisons before freezing the
+   website for full research collection. Keep every attempted run, including errors.
