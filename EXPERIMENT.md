@@ -1,16 +1,21 @@
-# pi-suite-v4 — Claim vs. actual validation pilot
+# pi-suite-v5 — Claim vs. actual validation pilot
 
 Upload this package's contents to the publishing root of
 https://github.com/browser-feature-lab/browser-feature-lab.github.io
 The website address remains https://browser-feature-lab.github.io/.
 Do not upload to Mashequr/browser-test-site. Preserve the data folder.
 
-## What changed in v4
+## What changed in v5
 
-The existing videoValidation family is now presented as **Claim vs. actual validation**.
-Only presentation, comparison labels and version metadata changed. The decoding
-procedure, fixed samples, configurations, repetitions, order and limits remain v3's.
-The collector revision is now 2; its claim and actual records remain unchanged.
+The independent videoValidation collector now checks visible and display dimensions
+instead of requiring exact coded storage dimensions. A 64×64 visible/display frame
+can decode successfully even when its coded storage is padded to 64×66 or 128×64.
+Each attempt still requires a successful decoder flush, all four expected frames
+and timestamps, and no decoder errors. Coded dimensions are retained for diagnosis;
+visible rectangle and display dimensions are now recorded too. Collector revision
+is 3. Samples, configurations, repetitions, order and limits are unchanged.
+Support claims still never select or suppress decoding. Errors, timeouts and
+missing APIs still mean unknown validation, never false.
 
 ## Existing fixed procedure
 
@@ -36,7 +41,8 @@ This is not a comparison against the separate media collector's 1080p queries.
 
 Each claim is answered (true or false), timed_out, error, or api_absent.
 Each decoding repetition is decoded, error, timed_out or api_absent, with details.
-Decoded requires all four expected frames with matching timestamps and dimensions.
+Decoded requires all four expected frames with matching timestamps and 64×64 visible and display dimensions,
+a successful decoder flush, and no decoder errors. Coded storage padding is allowed.
 This confirms frame production, not pixel correctness. Frames are closed promptly,
 and the decoder is closed after success, error or timeout. A decoding error does
 not prove general lack of codec support. A timeout is inconclusive.
@@ -70,7 +76,7 @@ Use collection[groupId].outcome for group coverage: results_returned, api_absent
 timed_out, test_error, not_attempted. These counts add to eight scheduled groups.
 Results returned means a report exists, not that all nested checks passed.
 Individual claims, attempts, errors and timeouts stay under probes.
-The JSON result schema remains result@2; experiment ID is now pi-suite-v4.
+The JSON result schema remains result@2; experiment ID is now pi-suite-v5.
 Keep experiment versions separate when analyzing their results.
 
 ## MDN and file preservation
@@ -84,12 +90,13 @@ page in code/browser-engine-tests is not the publishing source for this version.
 
 ## Verification and next pilot
 
-V4 sanity checks use simulated browser APIs to check independent decoding after
+V5 sanity checks use simulated browser APIs to check independent decoding after
 false, errored, timed-out or absent claims; explicit comparisons; decoding errors,
-timeouts and missing APIs; fixed suite settings; script syntax; and unchanged PI
+timeouts and missing APIs; padded frames, incorrect visible/display sizes, missing or extra frames and incorrect
+timestamps; fixed suite settings; script syntax; and unchanged PI
 files and samples. These checks do not replace real-browser pilots.
 
-1. Confirm the published website shows pi-suite-v4.
+1. Confirm the published website shows pi-suite-v5.
 2. Run one Chrome, one Firefox and one Safari pilot with fresh page loads and
    unique labels, then download each JSON file.
 3. Review videoValidation's claims, attempts and comparisons before freezing the

@@ -83,7 +83,7 @@
   <p class="sub">
     The same eight test groups for every browser: engine, MDN features,
     reported capabilities, audio, media, text, video, and claim vs. actual validation. Download one results file.
-    <br>Experiment: <code>pi-suite-v4</code>. Every group records a collection outcome and reason.
+    <br>Experiment: <code>pi-suite-v5</code>. Every group records a collection outcome and reason.
     Video testing can take several minutes. Results are observations, not a pass/fail verdict.
     <br>Claim vs. actual validation asks whether the browser says it supports H.264, VP9 and AV1,
     then independently tries the same fixed video samples—even when the browser says no.
@@ -110,7 +110,7 @@
 
   <div class="card" id="validationCard" hidden>
     <label>Claim vs. actual validation</label>
-    <p class="hint">Claim: does the browser say yes or no? Validation: does it return the expected frames? We try each fixed sample three times, even when the claim is no. Errors, timeouts, missing APIs and mixed results mean validation is unknown. Success checks frame count, timestamps and dimensions, not pixel correctness.</p>
+    <p class="hint">Claim: does the browser say yes or no? Validation: does it return the expected frames? We try each fixed sample three times, even when the claim is no. Errors, timeouts, missing APIs and mixed results mean validation is unknown. Success checks frame count, timestamps and visible/display dimensions, allowing padded coded dimensions. It does not check pixel correctness.</p>
     <table><thead><tr><th>Sample</th><th>Claim</th><th>Actual decoding attempts</th><th>Comparison</th></tr></thead><tbody id="validationRows"></tbody></table>
   </div>
 

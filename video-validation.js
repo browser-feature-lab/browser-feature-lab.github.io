@@ -93,7 +93,10 @@ async function attemptDecode(stream, repetition) {
       output(frame) {
         try {
           if (!finished) frames.push({ timestamp: frame.timestamp,
-            codedWidth: frame.codedWidth, codedHeight: frame.codedHeight });
+            codedWidth: frame.codedWidth, codedHeight: frame.codedHeight,
+            visibleRect: frame.visibleRect ? { x: frame.visibleRect.x, y: frame.visibleRect.y,
+              width: frame.visibleRect.width, height: frame.visibleRect.height } : null,
+            displayWidth: frame.displayWidth, displayHeight: frame.displayHeight });
         } catch (error) {
           if (!finished) { errors.push(message(error)); rejectCallback(error); }
         } finally { frame.close(); }
@@ -114,12 +117,17 @@ async function attemptDecode(stream, repetition) {
   const timestamps = frames.map(f => f.timestamp).sort((a,b) => a-b);
   const complete = frames.length === SETTINGS.frames &&
     JSON.stringify(timestamps) === JSON.stringify(expectedTimestamps) &&
-    frames.every(f => f.codedWidth === stream.config.codedWidth && f.codedHeight === stream.config.codedHeight);
+    // Coded dimensions describe storage and may include codec padding. These
+    // square-pixel samples must expose the expected visible and display sizes.
+    frames.every(f => f.visibleRect &&
+      f.visibleRect.width === stream.config.codedWidth &&
+      f.visibleRect.height === stream.config.codedHeight &&
+      f.displayWidth === stream.config.codedWidth && f.displayHeight === stream.config.codedHeight);
   const status = result.status === "timed_out" ? "timed_out"
     : result.status === "error" || errors.length || !complete ? "error" : "decoded";
   return { repetition, status, attempted: true, inputFrames: SETTINGS.frames,
     outputFrames: frames.length, expectedTimestamps, frames, errors,
-    reason: result.reason || (status === "error" ? "Expected frames were not all returned with matching timestamps and dimensions" : null),
+    reason: result.reason || (status === "error" ? "Expected frames were not all returned with matching timestamps and visible/display dimensions" : null),
     elapsedMs: Math.round(performance.now() - started) };
 }
 
@@ -142,7 +150,7 @@ export async function collectVideoValidation() {
   const apiAbsent = typeof VideoDecoder !== "function" || typeof EncodedVideoChunk !== "function";
   return { status: apiAbsent ? "unavailable" : "ok",
     ...(apiAbsent ? { collectionOutcome: "api_absent", reason: "Decoding API not exposed" } : {}),
-    value: { revision: 2, settings: SETTINGS, codecs },
-    detail: "Support claims and decoding attempts are independent. Decoded means the expected frames, timestamps and dimensions were returned, not that pixel correctness was verified. Errors and timeouts are inconclusive about general codec support. No browser authenticity verdict.",
+    value: { revision: 3, settings: SETTINGS, codecs },
+    detail: "Support claims and decoding attempts are independent. Decoded means the expected frames, timestamps and visible/display dimensions were returned after successful decoder operation with no decoder errors. Coded storage padding is allowed. Pixel correctness is not verified. Errors and timeouts are inconclusive about general codec support. No browser authenticity verdict.",
     confidence: "low" };
 }

@@ -3,7 +3,7 @@
 /* Fixed PI tests plus MDN feature collection. Browser identity is metadata and never
  * selects the checklist. Change the experiment version when changing checks. */
 export const EXPERIMENT = Object.freeze({
-  id: "pi-suite-v4",
+  id: "pi-suite-v5",
   context: "window (text also checks a worker)",
   featureCount: 10396,
   bcdVersion: "7.3.17",
