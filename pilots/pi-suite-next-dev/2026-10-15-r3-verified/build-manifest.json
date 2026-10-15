@@ -1,0 +1,25 @@
+{
+  "build": "2026-10-15-r3-verified",
+  "experiment": "pi-suite-next-dev",
+  "collectorRevision": 3,
+  "webgpuRevision": 3,
+  "frozen": false,
+  "files": {
+    "index.html": "d88f4f91dad97a79f27c9c3da989c75cd2ea7c2691efd5cc003777fe36c05b5d",
+    "video-decode.js": "e1ef0d4375819ad1ccf0fc8b580fdc8138a73924e81d9f0c63fdc89d7e7203dc",
+    "bcd-surface.js": "99e40623a866432efc8948b4e3f0519e0c753e7480dbe0f20da2f9d8d45f6e03",
+    "media.js": "9aaffe1c2c8a352ae901d52db372e27bfe2e6717f995588c9764fdd894b2083b",
+    "categorical-capabilities.js": "631a25e85dae8d3538e9d464af6d83545c349ccc64a5b3f779fc872c0e45f68c",
+    "engine-surface.js": "c5c15827851b9022fb4d983dd412f493c0639973a1dc9d80fb0976dafbb62b76",
+    "audio.js": "5d221d96b5fabe45b4252f07cbff045f550efa5751e823b332acb9285966407d",
+    "common.js": "ce779f3908b241356fa99ad926aefeb093e3f4713d4028538f77f4b9723bc88e",
+    "next-runner.js": "a650283be0bd6f885366a3e03700fde987f1681b38b26426c74f0004ce2f7248",
+    "text.js": "025a5f818fc3623fc7f73d2139b5c59ec4e51ab57790c30c0fb773af0c46c0ce",
+    "next/additional-streams.js": "6e8fc8dcf24d7034b9af0de56265cefc135776ef37376c276d4c5f5b8c0622ef",
+    "next/video-validation.js": "2708586f1ee3de9aef428b1ec22ebfd89ef8ac9fe2ca93a28bb2b42e628584f5",
+    "next/webgl-validation.js": "704df31ad029dd1cf1a42ecdb7fd80371d3c56ad8e29f9d43f5aee82ff680d46",
+    "next/outcomes.js": "56f04257e1e2d6577cef516fb919783af0201ab6313ad74a84c57909fbcdd110",
+    "next/webgpu-validation.js": "2fef834cd2d35b12244c4892ab02f834659c2f746ebb5e993d018e1e5162a9f9",
+    "data/feature-manifest.json": "6dd8992ce326416f8535651641eec086e77e41fe26897335d9bf466e5198520d"
+  }
+}

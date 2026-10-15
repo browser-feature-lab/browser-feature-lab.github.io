@@ -1,0 +1,411 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Browser test suite</title>
+<style>
+  :root {
+    color-scheme: light dark;
+    --bg: #fbfbfa; --fg: #1a1a19; --muted: #6b6b66;
+    --line: #e2e2dd; --card: #ffffff;
+    --ok: #1c7c4a; --warn: #a86a12; --bad: #b3341f; --accent: #2f5eb3;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #16161a; --fg: #e8e8e4; --muted: #97978f;
+      --line: #2e2e35; --card: #1e1e23;
+      --ok: #4ec27e; --warn: #d9a13c; --bad: #e57259; --accent: #7aa2e8;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 32px 20px 64px;
+    background: var(--bg); color: var(--fg);
+    font: 15px/1.55 ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+  main { max-width: 860px; margin: 0 auto; }
+  h1 { font-size: 20px; margin: 0 0 4px; letter-spacing: -0.01em; }
+  .sub { color: var(--muted); margin: 0 0 28px; font-size: 13.5px; }
+  .card {
+    background: var(--card); border: 1px solid var(--line);
+    border-radius: 10px; padding: 18px 20px; margin-bottom: 16px;
+  }
+  label { display: block; font-weight: 600; font-size: 13px; margin-bottom: 6px; }
+  .hint { color: var(--muted); font-size: 12.5px; font-weight: 400; }
+  input[type=text] {
+    width: 100%; padding: 9px 11px; font: inherit; font-size: 14px;
+    border: 1px solid var(--line); border-radius: 7px;
+    background: var(--bg); color: var(--fg);
+  }
+  .row { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 14px; }
+  button {
+    font: inherit; font-weight: 600; font-size: 14px;
+    padding: 9px 18px; border-radius: 7px; cursor: pointer;
+    border: 1px solid transparent; background: var(--accent); color: #fff;
+  }
+  button.secondary { background: transparent; border-color: var(--line); color: var(--fg); }
+  button[disabled] { opacity: 0.45; cursor: default; }
+  ol.families { list-style: none; padding: 0; margin: 0; }
+  ol.families li {
+    display: flex; flex-wrap: wrap; align-items: center; gap: 10px;
+    padding: 7px 0; border-bottom: 1px solid var(--line); font-size: 14px;
+  }
+  ol.families li:last-child { border-bottom: 0; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--line); flex: none; }
+  .dot.running { background: var(--warn); }
+  .dot.done { background: var(--ok); }
+  .dot.failed { background: var(--bad); }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th, td { text-align: left; padding: 8px; border-bottom: 1px solid var(--line); }
+  .reason { flex-basis: 100%; margin-left: 18px; color: var(--muted); font-size: 12.5px; }
+  .tag { margin-left: auto; color: var(--muted); font-size: 12px; font-variant-numeric: tabular-nums; }
+  dl.persona { display: grid; grid-template-columns: 150px 1fr; gap: 5px 14px; margin: 0; font-size: 13.5px; }
+  dl.persona dt { color: var(--muted); }
+  dl.persona dd { margin: 0; word-break: break-word; font-variant-numeric: tabular-nums; }
+  code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 12.5px; }
+  .status { font-size: 13.5px; padding: 10px 12px; border-radius: 7px; border: 1px solid var(--line); }
+  .status.ok { color: var(--ok); border-color: currentColor; }
+  .status.bad { color: var(--bad); border-color: currentColor; }
+  .warnbox { color: var(--warn); font-size: 13px; margin-top: 10px; }
+  .fatal {
+    border: 1px solid var(--bad); color: var(--bad); background: var(--card);
+    border-radius: 8px; padding: 12px 14px; margin-bottom: 20px; font-size: 13px;
+    white-space: pre-wrap; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  }
+  @media (max-width: 520px) { dl.persona { grid-template-columns: 1fr; gap: 2px; } }
+</style>
+</head>
+<body>
+<main>
+  <div class="fatal" id="fatal" hidden></div>
+  <h1>Development pilot — pi-suite-next-dev</h1><p>Build: 2026-10-15-r3-verified · Collector 3 · WebGPU 3 · NOT FROZEN</p>
+  <p class="sub">
+    The same ten test groups for every browser: engine, MDN features,
+    reported capabilities, audio, media, text, video, independent video validation, WebGL validation, and WebGPU validation. Download one results file.
+    <br>Experiment: <code>pi-suite-next-dev (NOT FROZEN)</code>. Every group records a collection outcome and reason.
+    Video testing can take several minutes. Results are observations, not a pass/fail verdict.
+    <br>Claim vs. actual validation asks whether the browser says it supports six fixed H.264, VP8, VP9 and AV1 configurations,
+    then independently tries the same fixed video samples—even when the browser says no.
+    <br>A timeout means “no answer within the waiting limit,” never “feature absent.”
+    Waiting limits are provisional for the pilot and are identical across browsers for each test.
+  </p>
+
+  <div class="card">
+    <label for="label">
+      Configuration label
+      <span class="hint">&mdash; identifies this run, e.g. <code>gologin-default</code> or <code>adspower-win11-chrome120</code></span>
+    </label>
+    <input type="text" id="label" autocomplete="off" spellcheck="false" placeholder="browser-profile-config">
+    <div class="row">
+      <button id="run">Run all tests</button>
+      <button id="download" class="secondary" disabled>Download JSON</button>
+    </div>
+    <div class="warnbox" id="warn" hidden></div>
+  </div>
+
+  <div class="card" id="progress" hidden>
+    <ol class="families" id="families"></ol>
+  </div>
+
+  <div class="card" id="validationCard" hidden>
+    <label>Claim vs. actual validation</label>
+    <p class="hint">Claim: does the browser say yes or no? Validation: does it return the expected frames? We try each fixed sample three times, even when the claim is no. Errors, timeouts, missing APIs and mixed results mean validation is unknown. Success checks frame count, timestamps and visible/display dimensions, allowing padded coded dimensions. It does not check pixel correctness.</p>
+    <table><thead><tr><th>Sample</th><th>Claim</th><th>Actual decoding attempts</th><th>Comparison</th></tr></thead><tbody id="validationRows"></tbody></table>
+  </div>
+
+  <div class="card" id="personaCard" hidden>
+    <label>Advertised persona <span class="hint">&mdash; what this browser claims</span></label>
+    <dl class="persona" id="persona"></dl>
+  </div>
+
+  <div class="card" id="resultCard" hidden>
+    <div class="status" id="status"></div>
+  </div>
+</main>
+
+<section id="graphicsCard" hidden><h2>Graphics observations</h2><p>Activation is separate from actual use. Errors and timeouts are inconclusive.</p><div id="graphicsResults"></div></section>
+<script>
+/*
+ * Deliberately a classic script, not a module: it has to survive whatever
+ * kills the module below. A module that fails to parse or throws while
+ * evaluating produces no visible symptom at all — the page renders, the button
+ * does nothing, and there is no way to tell from the UI that anything is
+ * wrong. That failure mode is worth engineering against, because the probe is
+ * run by hand across engines whose support differs by design.
+ */
+(function () {
+  var box = null;
+
+  function show(text) {
+    box = box || document.getElementById("fatal");
+    if (!box) return;
+    box.hidden = false;
+    box.textContent = (box.textContent ? box.textContent + "\n\n" : "") + text;
+  }
+
+  window.addEventListener("error", function (event) {
+    show(
+      "Script error: " + (event.message || "unknown") +
+      (event.filename ? "\n  at " + event.filename + ":" + event.lineno + ":" + event.colno : "")
+    );
+  });
+
+  window.addEventListener("unhandledrejection", function (event) {
+    show("Unhandled promise rejection: " + String(event.reason && event.reason.message || event.reason));
+  });
+
+  /* If the module never signals readiness, say so rather than sitting dead. */
+  window.addEventListener("load", function () {
+    setTimeout(function () {
+      if (!window.__probeReady) {
+        show(
+          "The page loaded but its module scripts did not initialise, so the " +
+          "buttons are inert.\n\nOpen the developer console (F12) for the " +
+          "underlying error. Common causes: the page was opened over file:// " +
+          "instead of through the server, or a probe module used syntax this " +
+          "browser does not support."
+        );
+      }
+    }, 2500);
+  });
+})();
+</script>
+
+<script type="module">
+import { runAll, FAMILIES, OUTCOME_LABELS } from "./next-runner.js";
+
+/* Signals to the guard above that the module graph evaluated. */
+window.__probeReady = true;
+
+/*
+ * This file avoids optional chaining (?.) and nullish coalescing (??) on
+ * purpose. They are only syntax sugar here, but syntax errors are fatal at
+ * PARSE time: one unsupported token anywhere in this script stops the whole
+ * script from running, so the page renders and every control is dead. An older
+ * engine is a legitimate subject in a study like this, and the shell that
+ * reports "your engine could not load these modules" must itself survive the
+ * engine it is reporting on. The probe modules are free to use modern syntax;
+ * they are loaded separately and fail one at a time.
+ */
+const nullish = (value, fallback) => (value === null || value === undefined) ? fallback : value;
+const message = error => String((error && error.message) || error);
+
+const $ = id => document.getElementById(id);
+const labelInput = $("label");
+const runButton = $("run");
+const downloadButton = $("download");
+
+let lastResult = null;
+let requiresReload = false;
+
+/* Suggest a label from the persona so unlabelled runs are still identifiable. */
+{
+  const ua = navigator.userAgent;
+  const guess = /Edg\//.test(ua) ? "edge"
+    : /OPR\//.test(ua) ? "opera"
+    : /Firefox\//.test(ua) ? "firefox"
+    : /Chrome\//.test(ua) ? "chrome"
+    : "browser";
+  const major = (/(?:Chrome|Firefox|Version)\/(\d+)/.exec(ua) || [])[1] || "x";
+  labelInput.placeholder = `${guess}-${major}-default`;
+}
+
+/* ?label=... and ?autorun=1 let a scripted pass drive the page without UI. */
+{
+  const params = new URLSearchParams(location.search);
+  if (params.get("label")) labelInput.value = params.get("label");
+}
+
+if (location.protocol === "file:") {
+  const warn = $("warn");
+  warn.hidden = false;
+  warn.textContent =
+    "Opened over file:// — ES modules and the feature manifest will not load. " +
+    "Open the hosted HTTPS website instead.";
+}
+
+function paintFamilies() {
+  const list = $("families");
+  list.innerHTML = "";
+  for (const family of FAMILIES) {
+    const li = document.createElement("li");
+    li.innerHTML =
+      `<span class="dot" data-dot="${family.id}"></span>` +
+      `<span>${family.label}</span>` +
+      `<span class="tag" data-tag="${family.id}">queued</span>` +
+      `<span class="reason" data-reason="${family.id}" hidden></span>`;
+    list.appendChild(li);
+  }
+}
+
+function paintGraphics(probes) {
+  const container = $("graphicsResults"); container.textContent = "";
+  const gl = probes.webglValidation && probes.webglValidation.value;
+  const gpu = probes.webgpuValidation && probes.webgpuValidation.value;
+  const groups = (gl ? gl.contexts.map(c => ({name: c.kind, checks: c.checks})) : [])
+    .concat(gpu ? [{name: "WebGPU", checks: gpu.checks}] : []);
+  for (const group of groups) {
+    const details = document.createElement("details");
+    const title = document.createElement("summary"); title.textContent = group.name + " — " + group.checks.length + " fixed checks"; details.appendChild(title);
+    const table = document.createElement("table");
+    for (const cells of [["Feature", "Reported", "Activation", "Actual use"]].concat(group.checks.map(row => [row.id,
+      row.reported.status === "answered" ? String(row.reported.supported) : row.reported.status,
+      row.activation.status, row.behavioral.status]))) {
+      const tr = document.createElement("tr");
+      for (const text of cells) { const td = document.createElement("td"); td.textContent = text; tr.appendChild(td); }
+      table.appendChild(tr);
+    }
+    details.appendChild(table); container.appendChild(details);
+  }
+  $("graphicsCard").hidden = false;
+}
+
+function paintPersona(persona) {
+  if (!persona || !persona.claimed) {
+    $("persona").textContent = "Browser identity unavailable: " + ((persona && persona.reason) || "unknown error");
+    $("personaCard").hidden = false;
+    return;
+  }
+  const claimed = persona.claimed.resolved;
+  const rows = [
+    ["Claimed browser", claimed.name ? `${claimed.name} ${claimed.version}` : "unknown"],
+    ["UA string", persona.userAgent],
+    ["UA-CH platform", (persona.highEntropy && persona.highEntropy.platform)
+      ? (persona.highEntropy.platform + " " + (persona.highEntropy.platformVersion || "")).trim()
+      : "not exposed"],
+    ["Claims agree", persona.claimed.agrees ? "yes" : "NO — UA and UA-CH disagree"],
+    ["Platform", persona.platform],
+    ["Time zone", persona.timeZone],
+    ["Languages", (persona.languages || []).join(", ")],
+    ["Cores / memory", nullish(persona.hardwareConcurrency, "?") + " / " + nullish(persona.deviceMemory, "?") + " GB"],
+    ["Screen", `${persona.screen.width}×${persona.screen.height} @${persona.screen.devicePixelRatio}`],
+    ["navigator.webdriver", String(persona.webdriver)]
+  ];
+
+  const dl = $("persona");
+  dl.innerHTML = "";
+  for (const [term, value] of rows) {
+    const dt = document.createElement("dt");
+    dt.textContent = term;
+    const dd = document.createElement("dd");
+    dd.textContent = nullish(value, "—");
+    if (term === "Claims agree" && !persona.claimed.agrees) dd.style.color = "var(--bad)";
+    dl.append(dt, dd);
+  }
+  $("personaCard").hidden = false;
+}
+
+function paintValidation(probe) {
+  const rows = $("validationRows");
+  rows.innerHTML = "";
+  const codecs = probe && probe.value && probe.value.codecs;
+  $("validationCard").hidden = !codecs;
+  if (!codecs) return;
+  const labels = { decoded: "decoded", error: "decoding error", timed_out: "timed out", api_absent: "API absent" };
+  const comparisons = {
+    claim_yes_validation_yes: "Claim yes / validation yes",
+    claim_no_validation_yes: "Claim no / validation yes",
+    claim_unknown_validation_yes: "Claim unknown / validation yes",
+    validation_unknown: "Validation unknown"
+  };
+  for (const codec of codecs) {
+    const row = document.createElement("tr");
+    const claim = codec.claim.status === "answered" ? (codec.claim.supported ? "Supported" : "Unsupported")
+      : codec.claim.status === "timed_out" ? "Timed out — unknown" : "Unknown (" + codec.claim.status + ")";
+    const attempts = codec.actual.repetitions.map((r, i) => `${i + 1}: ${labels[r.status] || r.status}`).join("; ");
+    for (const value of [codec.id, claim, attempts, comparisons[codec.comparison] || codec.comparison]) {
+      const cell = document.createElement("td");
+      cell.textContent = value;
+      row.appendChild(cell);
+    }
+    rows.appendChild(row);
+  }
+}
+
+runButton.addEventListener("click", async () => {
+  runButton.disabled = true;
+  downloadButton.disabled = true;
+  $("progress").hidden = false;
+  $("resultCard").hidden = true;
+  $("validationCard").hidden = true;
+  paintFamilies();
+
+  const label = labelInput.value.trim() || labelInput.placeholder;
+
+  try {
+    const result = await runAll({
+      label,
+      onProgress({ family, status, collection }) {
+        const dot = document.querySelector(`[data-dot="${family.id}"]`);
+        const tag = document.querySelector(`[data-tag="${family.id}"]`);
+        if (!dot || !tag) return;
+        dot.className = `dot ${status === "running" ? "running" : collection.outcome === "results_returned" ? "done" : "failed"}`;
+        tag.textContent = status === "running" ? "running…" : OUTCOME_LABELS[collection.outcome];
+        if (collection) {
+          tag.title = collection.reason;
+          const explanation = document.querySelector(`[data-reason="${family.id}"]`);
+          explanation.textContent = collection.reason;
+          explanation.hidden = collection.outcome === "results_returned";
+        }
+      }
+    });
+
+    for (const family of FAMILIES) {
+      const record = result.collection[family.id];
+      const tag = document.querySelector(`[data-tag="${family.id}"]`);
+      if (tag) {
+        tag.textContent = OUTCOME_LABELS[record.outcome];
+        tag.title = record.reason;
+      }
+    }
+
+    lastResult = result;
+    requiresReload = result.requiresReload;
+    paintPersona(result.persona);
+    paintValidation(result.probes.videoValidation);
+    paintGraphics(result.probes);
+
+    const status = $("status");
+    const bcd = result.probes.bcdSurface;
+
+    const counts = result.collectionSummary;
+    const mdn = bcd && bcd.status === "ok"
+      ? ` MDN: ${bcd.value.counts.supported} present, ${bcd.value.counts.absent} absent, ${bcd.value.counts.unknown} could not check.` : "";
+    status.className = "status";
+    status.textContent = `${counts.scheduled} groups scheduled: ${counts.results_returned} returned results, ` +
+      `${counts.api_absent} required API absent, ${counts.timed_out} timed out, ` +
+      `${counts.test_error} test/loading errors, ${counts.unknown} unknown, ${counts.not_attempted} not attempted. ` +
+      "Returned results do not mean every feature worked. Timeouts do not count as missing features." + mdn +
+      " Download JSON to save this run." +
+      (requiresReload ? " A test timed out and may still be running. Keep this run for review and reload before retrying." : "");
+
+    $("resultCard").hidden = false;
+    downloadButton.disabled = false;
+  } catch (error) {
+    lastResult = null;
+    $("status").className = "status bad";
+    $("status").textContent = "Could not complete this run: " + message(error);
+    $("resultCard").hidden = false;
+  } finally {
+    runButton.disabled = requiresReload;
+  }
+});
+
+if (new URLSearchParams(location.search).get("autorun") === "1") {
+  runButton.click();
+}
+
+downloadButton.addEventListener("click", () => {
+  if (!lastResult) return;
+  const blob = new Blob([JSON.stringify(lastResult, null, 2)], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = `pi-suite-next-dev__${lastResult.label}__${lastResult.collectedAt.replace(/[:.]/g, "-")}.json`;
+  anchor.click();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+});
+</script>
+</body>
+</html>
