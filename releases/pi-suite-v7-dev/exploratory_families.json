@@ -1,0 +1,12 @@
+[
+{"family":"vvc","name":"H.266 / VVC","feasibility":"Low / platform-dependent","next":"Verify authoritative MP4 sample-entry and codec string registration, obtain compliant stream, then test browser playback."},
+{"family":"evc","name":"MPEG-5 EVC","feasibility":"Low / limited public samples","next":"Identify a normative MIME/container mapping and a validated decodable reference file."},
+{"family":"mjpeg","name":"Motion JPEG / MJPEG","feasibility":"Medium, container-specific","next":"Test AVI and/or MOV MJPEG bitstreams using valid container MIME types; separate image/jpeg from video playback."},
+{"family":"vc1","name":"VC-1","feasibility":"Low / older OS-dependent support","next":"Obtain a verified VC-1 sample in a suitable container; avoid treating generic video/quicktime as codec support."},
+{"family":"prores","name":"Apple ProRes","feasibility":"Medium / Apple platform-specific","next":"Generate a small ProRes MOV (e.g., prores_ks), confirm codec tag, and test real HTML video playback in Safari and others."},
+{"family":"dirac","name":"Dirac / VC-2","feasibility":"Low","next":"Check Ogg Dirac mapping and create a valid sample; investigate codec-specific registered identifiers before support probes."},
+{"family":"h261","name":"H.261","feasibility":"Low / legacy","next":"Create or source a valid containerized H.261 video; clarify modern browser paths rather than relying on old QuickTime documentation."},
+{"family":"avs2","name":"AVS2","feasibility":"Low / regional support","next":"Locate official bitstreams and valid web container mappings; verify that a codec-capable browser path exists."},
+{"family":"avs3","name":"AVS3","feasibility":"Low / regional support","next":"Locate reference files/decoders and container identifiers; check browser-native versus JS decoder options separately."},
+{"family":"jpeg2000","name":"JPEG 2000 video","feasibility":"Low / specialized","next":"Determine whether Motion JPEG 2000 (MJ2) is supported in candidate browsers and source a valid test file."}
+]

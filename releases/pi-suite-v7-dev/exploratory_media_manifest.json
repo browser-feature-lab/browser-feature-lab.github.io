@@ -1,0 +1,105 @@
+{
+  "schema": "video-exploratory-dev/manifest@1",
+  "frozen": false,
+  "samples": [
+    {
+      "family": "mjpeg",
+      "name": "MJPEG",
+      "file": "exploratory_media/mjpeg_avi.avi",
+      "mime": "video/x-msvideo",
+      "codecProbe": "mjpeg",
+      "expectedFrames": 24,
+      "expectedWidth": 320,
+      "expectedHeight": 180,
+      "fileSha256": "b70b4387af52ab094ec33ba53dbd0d80ac2008daeebdccbe79ecd6d0939f3107",
+      "bytes": 189994,
+      "probe": {
+        "codec_name": "mjpeg",
+        "profile": "Baseline",
+        "codec_tag_string": "MJPG",
+        "width": 320,
+        "height": 180,
+        "nb_read_frames": "24"
+      },
+      "generation": {
+        "fps": 25,
+        "note": "Reference sample generated offline with FFmpeg. Encoder parameters in build notes."
+      },
+      "note": "Container-only MIME. Reporting APIs do NOT establish MJPEG codec support; browser playback of this file is needed."
+    },
+    {
+      "family": "prores",
+      "name": "Apple ProRes",
+      "file": "exploratory_media/prores_mov.mov",
+      "mime": "video/quicktime",
+      "codecProbe": "prores",
+      "expectedFrames": 24,
+      "expectedWidth": 320,
+      "expectedHeight": 180,
+      "fileSha256": "7bc6ed31d9de6cdc5185e1f584b58811cc9bfcdfd1fc64eee25a58b4cb756a19",
+      "bytes": 193607,
+      "probe": {
+        "codec_name": "prores",
+        "profile": "Proxy",
+        "codec_tag_string": "apco",
+        "width": 320,
+        "height": 180,
+        "nb_read_frames": "24"
+      },
+      "generation": {
+        "fps": 25,
+        "note": "Reference sample generated offline with FFmpeg. Encoder parameters in build notes."
+      },
+      "note": "Container-only MIME. Reporting APIs do NOT establish Apple ProRes codec support; browser playback of this file is needed."
+    },
+    {
+      "family": "h261",
+      "name": "H.261",
+      "file": "exploratory_media/h261_mov.mov",
+      "mime": "video/quicktime",
+      "codecProbe": "h261",
+      "expectedFrames": 24,
+      "expectedWidth": 176,
+      "expectedHeight": 144,
+      "fileSha256": "4c3780cd9af040e5b0cf0caaee61391b63754823261033c248223c73d63b8b4e",
+      "bytes": 51021,
+      "probe": {
+        "codec_name": "h261",
+        "codec_tag_string": "H261",
+        "width": 176,
+        "height": 144,
+        "nb_read_frames": "24"
+      },
+      "generation": {
+        "fps": 25,
+        "note": "Reference sample generated offline with FFmpeg. Encoder parameters in build notes."
+      },
+      "note": "Container-only MIME. Reporting APIs do NOT establish H.261 codec support; browser playback of this file is needed."
+    },
+    {
+      "family": "jpeg2000",
+      "name": "JPEG 2000",
+      "file": "exploratory_media/jpeg2000_mov.mov",
+      "mime": "video/quicktime",
+      "codecProbe": "jpeg2000",
+      "expectedFrames": 24,
+      "expectedWidth": 320,
+      "expectedHeight": 180,
+      "fileSha256": "e29d568867ce2d402ed39d47599c3bc0b88d70ebcd9f492b7dcf7ea297bd2501",
+      "bytes": 489623,
+      "probe": {
+        "codec_name": "jpeg2000",
+        "profile": "0",
+        "codec_tag_string": "mjp2",
+        "width": 320,
+        "height": 180,
+        "nb_read_frames": "24"
+      },
+      "generation": {
+        "fps": 25,
+        "note": "Reference sample generated offline with FFmpeg. Encoder parameters in build notes."
+      },
+      "note": "Container-only MIME. Reporting APIs do NOT establish JPEG 2000 codec support; browser playback of this file is needed."
+    }
+  ]
+}

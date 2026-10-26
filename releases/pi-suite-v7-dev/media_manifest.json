@@ -1,0 +1,400 @@
+{
+  "schema": "video-10-family-dev/manifest@1",
+  "frozen": false,
+  "createdAt": "2026-10-26T17:08:56.163669+00:00",
+  "ffmpegVersion": "ffmpeg version 7.1.5-0+deb13u1 Copyright (c) 2000-2026 the FFmpeg developers",
+  "scope": "local HTMLMediaElement playback pilot; not WebCodecs encoded chunk decoding; v6 unchanged",
+  "samples": [
+    {
+      "file": "media/h264_baseline.mp4",
+      "mime": "video/mp4; codecs=\"avc1.42E01E\"",
+      "family": "h264",
+      "fileSha256": "0f11caa410c762f3e18ee88e9746f0c23b035d87959397ca0627847437d91399",
+      "bytes": 74150,
+      "codecProbe": "h264",
+      "expectedFrames": 18,
+      "expectedWidth": 320,
+      "expectedHeight": 180,
+      "durationSecondsApprox": 1.5,
+      "probe": {
+        "codec_name": "h264",
+        "profile": "Constrained Baseline",
+        "codec_tag_string": "avc1",
+        "width": 320,
+        "height": 180,
+        "pix_fmt": "yuv420p",
+        "level": 30,
+        "avg_frame_rate": "12/1",
+        "nb_read_frames": "18"
+      },
+      "generation": {
+        "encoder": "libx264",
+        "options": [
+          "-profile:v",
+          "baseline",
+          "-level:v",
+          "3.0",
+          "-pix_fmt",
+          "yuv420p",
+          "-preset",
+          "ultrafast",
+          "-crf",
+          "23",
+          "-g",
+          "12",
+          "-bf",
+          "0"
+        ],
+        "fps": 12
+      },
+      "note": "Codec parameter is a representative claim probe; validate exact bitstream signaling independently, especially profile/level."
+    },
+    {
+      "file": "media/hevc_main.mp4",
+      "mime": "video/mp4; codecs=\"hvc1.1.6.L60.B0\"",
+      "family": "hevc",
+      "fileSha256": "4c8584b8087cb98e4e608817f2c692ec9d20b13ba3c5fcd96de950feaba024a8",
+      "bytes": 36680,
+      "codecProbe": "hevc",
+      "expectedFrames": 18,
+      "expectedWidth": 320,
+      "expectedHeight": 180,
+      "durationSecondsApprox": 1.5,
+      "probe": {
+        "codec_name": "hevc",
+        "profile": "Main",
+        "codec_tag_string": "hvc1",
+        "width": 320,
+        "height": 180,
+        "pix_fmt": "yuv420p",
+        "level": 60,
+        "avg_frame_rate": "12/1",
+        "nb_read_frames": "18"
+      },
+      "generation": {
+        "encoder": "libx265",
+        "options": [
+          "-preset",
+          "ultrafast",
+          "-pix_fmt",
+          "yuv420p",
+          "-crf",
+          "28",
+          "-tag:v",
+          "hvc1",
+          "-x265-params",
+          "pools=1:frame-threads=1:log-level=error"
+        ],
+        "fps": 12
+      },
+      "note": "Codec parameter is a representative claim probe; validate exact bitstream signaling independently, especially profile/level."
+    },
+    {
+      "file": "media/vp8.webm",
+      "mime": "video/webm; codecs=\"vp8\"",
+      "family": "vp8",
+      "fileSha256": "a5205930587df0cc1a37931b7b7e57dfd1866f8f80303e6adc1557ae4868cdfa",
+      "bytes": 62855,
+      "codecProbe": "vp8",
+      "expectedFrames": 18,
+      "expectedWidth": 320,
+      "expectedHeight": 180,
+      "durationSecondsApprox": 1.5,
+      "probe": {
+        "codec_name": "vp8",
+        "profile": "0",
+        "codec_tag_string": "[0][0][0][0]",
+        "width": 320,
+        "height": 180,
+        "pix_fmt": "yuv420p",
+        "level": -99,
+        "avg_frame_rate": "12/1",
+        "nb_read_frames": "18"
+      },
+      "generation": {
+        "encoder": "libvpx",
+        "options": [
+          "-pix_fmt",
+          "yuv420p",
+          "-deadline",
+          "good",
+          "-cpu-used",
+          "4",
+          "-b:v",
+          "350k"
+        ],
+        "fps": 12
+      },
+      "note": "Codec parameter is a representative claim probe; validate exact bitstream signaling independently, especially profile/level."
+    },
+    {
+      "file": "media/vp9_profile0.webm",
+      "mime": "video/webm; codecs=\"vp09.00.10.08\"",
+      "family": "vp9",
+      "fileSha256": "2925a949fd5a404c01b66e7fc111869e412ccfb4bb87e88a774f26ac33be7205",
+      "bytes": 39114,
+      "codecProbe": "vp9",
+      "expectedFrames": 18,
+      "expectedWidth": 320,
+      "expectedHeight": 180,
+      "durationSecondsApprox": 1.5,
+      "probe": {
+        "codec_name": "vp9",
+        "profile": "Profile 0",
+        "codec_tag_string": "[0][0][0][0]",
+        "width": 320,
+        "height": 180,
+        "pix_fmt": "yuv420p",
+        "level": -99,
+        "avg_frame_rate": "12/1",
+        "nb_read_frames": "18"
+      },
+      "generation": {
+        "encoder": "libvpx-vp9",
+        "options": [
+          "-pix_fmt",
+          "yuv420p",
+          "-deadline",
+          "good",
+          "-cpu-used",
+          "5",
+          "-b:v",
+          "350k"
+        ],
+        "fps": 12
+      },
+      "note": "Codec parameter is a representative claim probe; validate exact bitstream signaling independently, especially profile/level."
+    },
+    {
+      "file": "media/av1_main8.webm",
+      "mime": "video/webm; codecs=\"av01.0.00M.08\"",
+      "family": "av1",
+      "fileSha256": "793355ac90f6c88d7064058b54e6d9cc97a0c2fe59ddd7119b63e0447a0857eb",
+      "bytes": 37045,
+      "codecProbe": "av1",
+      "expectedFrames": 18,
+      "expectedWidth": 320,
+      "expectedHeight": 180,
+      "durationSecondsApprox": 1.5,
+      "probe": {
+        "codec_name": "av1",
+        "profile": "Main",
+        "codec_tag_string": "[0][0][0][0]",
+        "width": 320,
+        "height": 180,
+        "pix_fmt": "yuv420p",
+        "level": 0,
+        "avg_frame_rate": "12/1",
+        "nb_read_frames": "18"
+      },
+      "generation": {
+        "encoder": "libaom-av1",
+        "options": [
+          "-pix_fmt",
+          "yuv420p",
+          "-cpu-used",
+          "8",
+          "-b:v",
+          "350k",
+          "-usage",
+          "realtime"
+        ],
+        "fps": 12
+      },
+      "note": "Codec parameter is a representative claim probe; validate exact bitstream signaling independently, especially profile/level."
+    },
+    {
+      "file": "media/h263.3gp",
+      "mime": "video/3gpp",
+      "family": "h263",
+      "fileSha256": "48786a887e675c3857ed74153fbbfe9de22a7b57fc1e7265401b2d1824c98dc1",
+      "bytes": 54954,
+      "codecProbe": "h263",
+      "expectedFrames": 18,
+      "expectedWidth": 176,
+      "expectedHeight": 144,
+      "durationSecondsApprox": 1.5,
+      "probe": {
+        "codec_name": "h263",
+        "codec_tag_string": "s263",
+        "width": 176,
+        "height": 144,
+        "pix_fmt": "yuv420p",
+        "level": -99,
+        "avg_frame_rate": "12/1",
+        "nb_read_frames": "18"
+      },
+      "generation": {
+        "encoder": "h263",
+        "options": [
+          "-q:v",
+          "5",
+          "-g",
+          "12",
+          "-bf",
+          "0"
+        ],
+        "fps": 12
+      },
+      "note": "Container-only MIME; specific H.263 codec parameter requires separate confirmation."
+    },
+    {
+      "file": "media/mpeg4part2_simple.mp4",
+      "mime": "video/mp4; codecs=\"mp4v.20.1\"",
+      "family": "mpeg4part2",
+      "fileSha256": "84deb085004433fa2fcfa1fa0624017954a4abae3b3f8f0020084018d676231c",
+      "bytes": 83098,
+      "codecProbe": "mpeg4",
+      "expectedFrames": 18,
+      "expectedWidth": 320,
+      "expectedHeight": 180,
+      "durationSecondsApprox": 1.5,
+      "probe": {
+        "codec_name": "mpeg4",
+        "profile": "Simple Profile",
+        "codec_tag_string": "mp4v",
+        "width": 320,
+        "height": 180,
+        "pix_fmt": "yuv420p",
+        "level": 1,
+        "avg_frame_rate": "12/1",
+        "nb_read_frames": "18"
+      },
+      "generation": {
+        "encoder": "mpeg4",
+        "options": [
+          "-q:v",
+          "4",
+          "-g",
+          "12",
+          "-bf",
+          "0",
+          "-vtag",
+          "mp4v"
+        ],
+        "fps": 12
+      },
+      "note": "Codec parameter is a representative claim probe; validate exact bitstream signaling independently, especially profile/level."
+    },
+    {
+      "file": "media/mpeg1video.mpg",
+      "mime": "video/mpeg",
+      "family": "mpeg1",
+      "fileSha256": "cdd746eea22f285fcbe78da9722e2e0c8483b9892fd7628d433c27defb19423c",
+      "bytes": 202752,
+      "codecProbe": "mpeg1video",
+      "expectedFrames": 38,
+      "expectedWidth": 320,
+      "expectedHeight": 240,
+      "durationSecondsApprox": 1.52,
+      "probe": {
+        "codec_name": "mpeg1video",
+        "codec_tag_string": "[0][0][0][0]",
+        "width": 320,
+        "height": 240,
+        "pix_fmt": "yuv420p",
+        "level": -99,
+        "avg_frame_rate": "25/1",
+        "nb_read_frames": "38",
+        "side_data_list": [
+          {}
+        ]
+      },
+      "generation": {
+        "encoder": "mpeg1video",
+        "options": [
+          "-q:v",
+          "4",
+          "-g",
+          "12",
+          "-bf",
+          "0",
+          "-f",
+          "mpeg"
+        ],
+        "fps": 25
+      },
+      "note": "Container-only MIME; cannot distinguish MPEG-1 versus MPEG-2 without the actual file."
+    },
+    {
+      "file": "media/mpeg2video.mpg",
+      "mime": "video/mpeg",
+      "family": "mpeg2",
+      "fileSha256": "9919ab176b06e4a2e76bfeea922476bd01cee6b90e0a7038bab353656a68a461",
+      "bytes": 210944,
+      "codecProbe": "mpeg2video",
+      "expectedFrames": 38,
+      "expectedWidth": 320,
+      "expectedHeight": 240,
+      "durationSecondsApprox": 1.52,
+      "probe": {
+        "codec_name": "mpeg2video",
+        "profile": "Main",
+        "codec_tag_string": "[0][0][0][0]",
+        "width": 320,
+        "height": 240,
+        "pix_fmt": "yuv420p",
+        "level": 8,
+        "avg_frame_rate": "25/1",
+        "nb_read_frames": "38",
+        "side_data_list": [
+          {}
+        ]
+      },
+      "generation": {
+        "encoder": "mpeg2video",
+        "options": [
+          "-q:v",
+          "4",
+          "-g",
+          "12",
+          "-bf",
+          "0",
+          "-f",
+          "mpeg"
+        ],
+        "fps": 25
+      },
+      "note": "Container-only MIME; cannot distinguish MPEG-1 versus MPEG-2 without the actual file."
+    },
+    {
+      "file": "media/theora.ogv",
+      "mime": "video/ogg; codecs=\"theora\"",
+      "family": "theora",
+      "fileSha256": "aa1d4ab1ab7846ba700b8e0cf3bf180e3c3e5cedc5852b85eaf5f3482fecb7f5",
+      "bytes": 41608,
+      "codecProbe": "theora",
+      "expectedFrames": 18,
+      "expectedWidth": 320,
+      "expectedHeight": 180,
+      "durationSecondsApprox": 1.5,
+      "probe": {
+        "codec_name": "theora",
+        "codec_tag_string": "[0][0][0][0]",
+        "width": 320,
+        "height": 180,
+        "pix_fmt": "yuv420p",
+        "level": -99,
+        "avg_frame_rate": "0/0",
+        "nb_read_frames": "18"
+      },
+      "generation": {
+        "encoder": "libtheora",
+        "options": [
+          "-q:v",
+          "5",
+          "-pix_fmt",
+          "yuv420p",
+          "-g",
+          "12",
+          "-f",
+          "ogg"
+        ],
+        "fps": 12
+      },
+      "note": "Codec parameter is a representative claim probe; validate exact bitstream signaling independently, especially profile/level."
+    }
+  ],
+  "failures": [],
+  "notes": "Exact codec string matching is best effort; behavioral check tests an independently FFprobe-validated file."
+}
