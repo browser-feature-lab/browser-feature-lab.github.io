@@ -1,0 +1,246 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>v7 Dev — Browser video codec experiment</title>
+<style>
+:root{color-scheme:light}body{font-family:system-ui,-apple-system,sans-serif;max-width:1040px;margin:32px auto;padding:0 20px;line-height:1.55;color:#182431;background:white}h1{font-size:27px;margin-bottom:8px}h2{font-size:19px;margin-top:25px}p{margin:8px 0 14px;color:#4c5965}.note{border-left:4px solid #517988;padding:12px 16px;background:#f3f6f7}input{font:inherit;padding:8px;width:min(100%,500px);border:1px solid #b6bfc8;border-radius:4px}button{font:inherit;padding:10px 15px;margin:9px 8px 10px 0;border:1px solid #94a2aa;background:#f5f7f8;border-radius:5px;cursor:pointer}button:disabled{opacity:.45;cursor:default}table{border-collapse:collapse;width:100%;font-size:14px}th,td{text-align:left;border-bottom:1px solid #e0e6e9;padding:9px 8px;vertical-align:top}th{background:#f5f7f8}td code{overflow-wrap:anywhere}small{color:#677481}.good{color:#136c4c}.bad{color:#a13d2d}.neutral{color:#515f6d}.subtle{font-size:13px;color:#6a7680}#player{width:320px;max-width:100%;height:180px;background:#ddd;display:block;margin:12px 0}.bar{height:9px;background:#e4e9eb;border-radius:3px;overflow:hidden}.fill{height:100%;width:0;background:#278398}pre{font:12px ui-monospace,SFMono-Regular,monospace;max-height:230px;overflow:auto;background:#f4f6f8;padding:12px;white-space:pre-wrap}section{margin-bottom:12px}
+</style>
+</head>
+<body>
+<h1>Browser video codec experiment — v7 dev</h1>
+<p class="note"><strong>Two different kinds of observations:</strong> (1) browser-reported playback support from <code>canPlayType</code> and <code>MediaCapabilities</code>; (2) loading, decoding and playing a short <em>real video file</em> for each family. This is <strong>not</strong> a WebCodecs <code>VideoDecoder.decode</code> test, does not test all profiles, and does not prove pixel-perfect decoding. The original 1,069 WebCodecs configuration scanner is separate. Frozen v6 is untouched.</p>
+<section><label for="runlabel">Run label </label><input id="runlabel" value="local-v7-video10-pilot-01" autocomplete="off"></section>
+<p id="manifestStatus">Loading experiment manifest…</p>
+<button id="run" disabled>Run all 10 video families</button><button id="json" disabled>Download JSON</button><button id="csv" disabled>Download CSV</button>
+<section class="note"><strong>Repeatability pilot:</strong> Run all 14 files three times <em>in this one browser session</em>. This checks within-session consistency; it does not replace three independently launched BrowserStack sessions. <button id="batch" disabled>Run 3 rounds (10 + 4 each)</button><button id="batchjson" disabled>Download 3-round JSON</button><p id="batchstatus">Not run yet.</p></section>
+<div class="bar"><div id="progress" class="fill"></div></div><p id="status">No run yet.</p>
+<video id="player" playsinline muted preload="auto"></video>
+<h2>Per-family measurements</h2>
+<table><thead><tr><th>Family</th><th>Reported: canPlayType</th><th>Reported: MediaCapabilities</th><th>Real file playback</th><th>Integrity</th></tr></thead><tbody id="rows"></tbody></table>
+<p class="subtle">“Maybe” and “probably” are <em>claims</em>, not proof. Empty response means no advertised support for that MIME string, not proof all streams in the family fail. MPEG-1 and MPEG-2 have a shared container MIME type, so their claims cannot be separated using MIME alone. HEVC outcomes may depend on OS/hardware.</p>
+<h2>Control checks</h2><pre id="controls">Not run</pre>
+<h2>Ten additional codec families — exploration queue</h2><p class="subtle">These are inventoried, <strong>not yet behaviorally tested</strong>. No “unsupported” result is assigned until a valid test path exists.</p>
+<table><thead><tr><th>Family</th><th>Near-term feasibility</th><th>Next research task</th></tr></thead><tbody id="explore"></tbody></table>
+<h2>Optional: first four exploratory media samples</h2>
+<p class="subtle">These are additional, offline-validated files, <strong>not part of the ten-family baseline</strong>. ProRes, H.261, and JPEG 2000 use the same generic QuickTime MIME type, which cannot establish support for any one codec. Only real-file observations are codec-specific here.</p>
+<button id="runextra" disabled>Run 4 exploratory samples</button>
+<p id="extraStatus">No exploratory playback run yet.</p>
+<table><thead><tr><th>Codec family</th><th>Generic MIME claim</th><th>Actual file playback</th><th>Integrity</th></tr></thead><tbody id="extraRows"></tbody></table>
+<h2>Environment (self-reported)</h2><pre id="env"></pre>
+<script>
+'use strict';
+const $ = s => document.getElementById(s);
+let manifest=null, extraManifest=null, buildInfo=null, output=null, running=false, extraRunning=false;
+let batchOutput=null, batching=false;
+const tnow=()=>performance.now();
+const errObj=e=>({name:e?.name||'Error',message:String(e?.message||e)});
+function download(name,blob){const u=URL.createObjectURL(blob);const a=document.createElement('a');a.href=u;a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(u),2000)}
+function label(){return ($('runlabel').value||'unnamed').replace(/[^A-Za-z0-9_-]/g,'-').slice(0,70)}
+function wait(ms){return new Promise(r=>setTimeout(r,ms))}
+function shaHex(buf){if(!crypto?.subtle)return Promise.resolve(null);return crypto.subtle.digest('SHA-256',buf).then(bytes=>Array.from(new Uint8Array(bytes)).map(x=>x.toString(16).padStart(2,'0')).join(''))}
+function familyTitle(f){return ({h264:'H.264',hevc:'HEVC / H.265',vp8:'VP8',vp9:'VP9',av1:'AV1',h263:'H.263',mpeg4part2:'MPEG-4 Part 2',mpeg1:'MPEG-1',mpeg2:'MPEG-2',theora:'Theora'})[f]||f}
+function persona(){return {userAgent:navigator.userAgent,platform:navigator.platform,language:navigator.language,webdriver:navigator.webdriver??null,origin:location.origin,secureContext:window.isSecureContext,screen:{width:screen.width,height:screen.height}}}
+function claimOne(type){const el=document.createElement('video');try{return {type,answer:el.canPlayType(type)||'',status:'ok'}}catch(e){return {type,status:'error',error:errObj(e)}}}
+async function mediaCapability(type,sample){
+ if(!navigator.mediaCapabilities?.decodingInfo)return {status:'api_absent'};
+ // File playback only. A MIME-only codec-ambiguous result does not distinguish MPEG1/MPEG2.
+ const config={type:'file',video:{contentType:type,width:sample.expectedWidth,height:sample.expectedHeight,bitrate:350000,framerate:sample.generation.fps}};
+ try{let answer=await Promise.race([navigator.mediaCapabilities.decodingInfo(config),wait(7000).then(()=>({timeout:true}))]);
+   if(answer.timeout)return {status:'timed_out'};
+   return {status:'answered',supported:answer.supported,smooth:answer.smooth,powerEfficient:answer.powerEfficient};
+ }catch(e){return {status:'error',exception:errObj(e)}}
+}
+async function verifyFile(sample){
+ try{
+  const res=await fetch('./'+sample.file,{cache:'no-store'});
+  if(!res.ok)return {status:'fetch_error',httpStatus:res.status};
+  const buf=await res.arrayBuffer();
+  const actual=await shaHex(buf);
+  if(actual===null)return {status:'unverified_crypto_unavailable',bytes:buf.byteLength};
+  return {status:actual===sample.fileSha256?'verified':'hash_mismatch',sha256:actual,bytes:buf.byteLength};
+ }catch(e){return {status:'fetch_error',exception:errObj(e)}}
+}
+function readPixels(video){
+ try{
+  const cn=document.createElement('canvas');cn.width=16;cn.height=16;
+  const ctx=cn.getContext('2d',{willReadFrequently:true});if(!ctx)return {status:'canvas_unavailable'};
+  ctx.drawImage(video,0,0,16,16);
+  const rgba=ctx.getImageData(0,0,16,16).data;
+  let hash=2166136261>>>0, min=255,max=0;
+  for(let i=0;i<rgba.length;i++){hash=Math.imul(hash^rgba[i],16777619)>>>0;min=Math.min(min,rgba[i]);max=Math.max(max,rgba[i]);}
+  return {status:'frame_pixels_read',sampledPixelHash:'fnv1a32-'+hash.toString(16).padStart(8,'0'),min,max,
+    note:'Observational 16x16 checksum; NO reference pixel correctness checked.'};
+ }catch(e){return {status:'canvas_error',exception:errObj(e)}}
+}
+async function playRealFile(sample){
+ const video=$('player');video.pause();video.removeAttribute('src');video.load();
+ video.muted=true;video.playsInline=true;video.preload='auto';
+ const started=tnow();let framesPresented=0;let rvfcId=null;let mediaError=null;
+ const onFrame=(now,meta)=>{framesPresented=Math.max(framesPresented,meta.presentedFrames||0);if(video.requestVideoFrameCallback)rvfcId=video.requestVideoFrameCallback(onFrame)};
+ if(video.requestVideoFrameCallback)rvfcId=video.requestVideoFrameCallback(onFrame);
+ let settled=false;
+ const initial=await new Promise(resolve=>{
+  let timeout;
+  function finish(status){if(settled)return;settled=true;clearTimeout(timeout);video.removeEventListener('loadeddata',ready);video.removeEventListener('error',error);resolve(status)}
+  function ready(){finish('loadeddata')}
+  function error(){mediaError=video.error?{code:video.error.code,message:video.error.message}:null;finish('media_error')}
+  video.addEventListener('loadeddata',ready);video.addEventListener('error',error);
+  timeout=setTimeout(()=>finish('load_timeout'),8000);
+  video.src='./'+sample.file;video.load();
+ });
+ let pixels={status:'not_tested'},playStatus='not_attempted',progressed=false,playError=null;
+ const foundWidth=video.videoWidth,foundHeight=video.videoHeight;
+ if(initial==='loadeddata'){
+    pixels=readPixels(video);
+    const pos0=video.currentTime;
+    try{
+      // Begin playback, then check media time advanced. Avoid Promise hang.
+      const tryPlay=video.play();if(tryPlay?.catch)tryPlay.catch(e=>{playError=errObj(e)});
+      const until=tnow()+3300;
+      while(tnow()<until){await wait(95);if(video.currentTime>pos0+0.15||video.ended){progressed=true;break}if(playError)break}
+      playStatus=progressed?'time_progressed':playError?'play_rejected':'no_progress';
+    }catch(e){playStatus='play_rejected';playError=errObj(e)}
+ }
+ if(video.cancelVideoFrameCallback&&rvfcId!==null){try{video.cancelVideoFrameCallback(rvfcId)}catch(e){}}
+ video.pause();video.removeAttribute('src');video.load();
+ let status=initial;
+ if(initial==='loadeddata')status=(pixels.status==='frame_pixels_read' && progressed)?'playback_and_frame_observed':
+     pixels.status==='frame_pixels_read'?'frame_observed_no_progress':'loadeddata_without_frame_readback';
+ return {status,load:initial,width:foundWidth,height:foundHeight,
+   dimensionsMatch:foundWidth===sample.expectedWidth&&foundHeight===sample.expectedHeight,
+   pixels,playStatus,progressed,presentedFramesReported:framesPresented,
+   requestVideoFrameCallbackAvailable:typeof video.requestVideoFrameCallback==='function',
+   playError,mediaError,elapsedMs:Math.round(tnow()-started)};
+}
+async function controls(){
+ const tests={unknownMediaType:claimOne('video/x-made-up-media-type'),badCodec:claimOne('video/mp4; codecs="no_such_codec_x123"')};
+ if(navigator.mediaCapabilities?.decodingInfo){
+  try{const v=await navigator.mediaCapabilities.decodingInfo({type:'file',video:{contentType:'video/webm; codecs="vp8"',width:0,height:180,bitrate:350000,framerate:12}});
+      tests.zeroWidth={status:'answered',value:v};
+  }catch(e){tests.zeroWidth={status:'rejected',exception:errObj(e)}}
+ }else tests.zeroWidth={status:'api_absent'};
+ return tests;
+}
+function setCell(tr,text,klass){const c=document.createElement('td');c.textContent=String(text??'');if(klass)c.className=klass;tr.appendChild(c)}
+function renderRows(rows){const tb=$('rows');tb.replaceChildren();for(const r of rows){const tr=document.createElement('tr');
+  setCell(tr,familyTitle(r.family));
+  setCell(tr,(r.claims||[]).map(c=>c.status==='ok'?(c.answer||'"" (no claim)'):c.status).join(' / '), 'neutral');
+  const mc=r.mediaCapabilities;setCell(tr,mc?.status==='answered'?(mc.supported?'supported=true':'supported=false'):(mc?.status||'—'),'neutral');
+  const st=r.behavior?.status||'—';setCell(tr,st,/observed/.test(st)?'good':/error|timeout|failed/.test(st)?'bad':'neutral');
+  setCell(tr,r.integrity?.status||'—',r.integrity?.status==='verified'?'good':'bad');tb.appendChild(tr);
+ }}
+$('json').onclick=()=>{if(output)download(label()+'.json',new Blob([JSON.stringify(output,null,2)],{type:'application/json'}))};
+$('csv').onclick=()=>{if(!output)return;const q=s=>'"'+String(s??'').replace(/"/g,'""')+'"';const lines=['family,mime,can_play_type,media_capabilities,behavior,dimensions_match,integrity,file_sha256'];
+ for(const r of [...output.results,...(output.exploratoryResults||[])]){lines.push([r.family,r.mime,r.claims[0]?.answer,r.mediaCapabilities?.supported,r.behavior?.status,r.behavior?.dimensionsMatch,r.integrity?.status,r.sampleSha256].map(q).join(','))}
+ download(label()+'.csv',new Blob([lines.join('\n')],{type:'text/csv'}))};
+$('run').onclick=async()=>{
+ if(running||!manifest)return;running=true;output=null;$('runextra').disabled=true;$('extraRows').replaceChildren();$('extraStatus').textContent='No exploratory playback run yet.';
+ $('run').disabled=true;$('json').disabled=true;$('csv').disabled=true;
+ const begin=tnow();const results=[];let initialCheck=await controls();$('controls').textContent=JSON.stringify(initialCheck,null,2);
+ for(const s of manifest.samples){$('status').textContent='Testing '+familyTitle(s.family)+' ('+(results.length+1)+'/10)';
+   const claims=[claimOne(s.mime)];
+   // Extra unqualified container-only probe is deliberately not interpreted as codec-specific.
+   if(s.family==='mpeg4part2')claims.push(claimOne('video/mp4'));
+   if(s.family==='h263')claims.push(claimOne('video/3gpp; codecs="s263"'));
+   const mediaCapabilities=await mediaCapability(s.mime,s);
+   const integrity=await verifyFile(s);
+   const behavior=integrity.status==='verified'||integrity.status==='unverified_crypto_unavailable'?await playRealFile(s):{status:'not_attempted_integrity_failed'};
+   results.push({family:s.family,mime:s.mime,file:s.file,sampleSha256:s.fileSha256,claims,mediaCapabilities,integrity,behavior,
+      note:s.note});
+   $('progress').style.width=(results.length/manifest.samples.length*100).toFixed(1)+'%';renderRows(results);
+ }
+ output={schema:'v7-video-10-family-dev/result@1',frozen:false,startedAt:new Date(Date.now()-Math.round(tnow()-begin)).toISOString(),
+   completedAt:new Date().toISOString(),label:$('runlabel').value,persona:persona(),
+   manifestSha256:buildInfo?.manifestSha256,manifestVerification:$('manifestStatus').dataset.verified||'not_available',
+   runnerSha256:buildInfo?.runnerSha256,mediaGeneration:{ffmpegVersion:manifest.ffmpegVersion,createdAt:manifest.createdAt},
+   semantics:'Claim probes via canPlayType/MediaCapabilities; video playback via media element/canvas, NOT WebCodecs decoding or pixel-reference correctness',
+   controlChecks:initialCheck,results,exploratoryFamilies:exploreFamilies};
+ $('status').textContent=`Finished ${results.length} sample files. Download JSON before closing this page.`;
+ $('json').disabled=false;$('csv').disabled=false;$('run').disabled=false;$('runextra').disabled=false;running=false;
+};
+$('runextra').onclick=async()=>{
+ if(!output||!extraManifest||running||extraRunning)return;
+ extraRunning=true;$('runextra').disabled=true;$('run').disabled=true;
+ const res=[];const tb=$('extraRows');tb.replaceChildren();
+ for(const s of extraManifest.samples){
+  $('extraStatus').textContent=`Testing ${s.name} (${res.length+1}/4)`;
+  const claims=[claimOne(s.mime)], mediaCapabilities=await mediaCapability(s.mime,s);
+  const integrity=await verifyFile(s);
+  const behavior=integrity.status==='verified'||integrity.status==='unverified_crypto_unavailable'?await playRealFile(s):{status:'not_attempted_integrity_failed'};
+  const r={family:s.family,mime:s.mime,file:s.file,sampleSha256:s.fileSha256,claims,mediaCapabilities,integrity,behavior,note:s.note,scope:'exploratory_only'};res.push(r);
+  const tr=document.createElement('tr');setCell(tr,s.name);setCell(tr,(claims[0].answer||'"" (no claim)')+' (container only)');
+  setCell(tr,behavior.status,/observed/.test(behavior.status)?'good':'neutral');setCell(tr,integrity.status,integrity.status==='verified'?'good':'bad');tb.appendChild(tr);
+ }
+ output.exploratoryResults=res;output.exploratoryManifestSha256=buildInfo?.extraManifestSha256;
+ $('extraStatus').textContent='Finished 4 optional exploratory samples. Download JSON again to include these results.';
+ $('runextra').disabled=false;$('run').disabled=false;extraRunning=false;
+};
+// Automatic within-session repeatability check; each round runs both core and optional samples.
+$('batchjson').onclick=()=>{
+ if(batchOutput)download(batchOutput.label+'-3-rounds.json',new Blob([JSON.stringify(batchOutput,null,2)],{type:'application/json'}));
+};
+$('batch').onclick=async()=>{
+ if(!manifest||running||extraRunning||batching)return;
+ batching=true;batchOutput=null;$('batch').disabled=true;$('batchjson').disabled=true;
+ const originalLabel=$('runlabel').value;
+ const base=(label()||'v7-video').slice(0,60);
+ const outputs=[];
+ try{
+  for(let i=1;i<=3;i++){
+   $('runlabel').value=base+'-repeat-0'+i;
+   $('batchstatus').textContent='Round '+i+'/3: running 10 core samples…';
+   await $('run').onclick();
+   if(!output||output.results?.length!==10)throw Error('Core round '+i+' incomplete');
+   $('batchstatus').textContent='Round '+i+'/3: running 4 exploratory samples…';
+   await $('runextra').onclick();
+   if(!output||output.exploratoryResults?.length!==4)throw Error('Exploratory round '+i+' incomplete');
+   if(output.results.concat(output.exploratoryResults).some(r=>r.integrity?.status!=='verified'))
+     throw Error('Media integrity was not verified in round '+i);
+   outputs.push(JSON.parse(JSON.stringify(output)));
+   $('batchstatus').textContent='Completed '+i+'/3 rounds.';
+  }
+  const familyNames=[...outputs[0].results,...outputs[0].exploratoryResults].map(r=>r.family);
+  const stability=familyNames.map((family,k)=>{
+   const statuses=outputs.map(o=>[...o.results,...o.exploratoryResults][k].behavior?.status||'missing');
+   return {family,statuses,consistent:statuses.every(s=>s===statuses[0])};
+  });
+  batchOutput={schema:'v7-video-10-family-dev/batch@1',frozen:false,
+   label:base,sessionScope:'three sequential rounds in one browser session; NOT independent sessions',
+   manifestSha256:buildInfo?.manifestSha256,extraManifestSha256:buildInfo?.extraManifestSha256,
+   runnerSha256:buildInfo?.runnerSha256,allIntegrityVerified:true,
+   rounds:outputs,stability,allPlaybackStatusesConsistent:stability.every(r=>r.consistent)};
+  $('batchjson').disabled=false;
+  $('batchstatus').textContent='Completed 3 full rounds ('+(outputs.length*14)+' observations); '+
+    stability.filter(s=>s.consistent).length+'/14 outcomes consistent. Download 3-round JSON.';
+ }catch(e){
+  $('batchstatus').textContent='BATCH FAILED: '+String(e)+' — '+outputs.length+' complete rounds. You can run again.';
+  console.error(e);
+ }finally{
+  $('runlabel').value=originalLabel;batching=false;$('batch').disabled=false;
+ }
+};
+
+let exploreFamilies=[];
+(async()=>{
+ $('env').textContent=JSON.stringify(persona(),null,2);
+ try{
+   const [mr,br,er,xr]=await Promise.all([fetch('./media_manifest.json',{cache:'no-store'}),fetch('./buildinfo.json',{cache:'no-store'}),fetch('./exploratory_families.json',{cache:'no-store'}),fetch('./exploratory_media_manifest.json',{cache:'no-store'})]);
+   if(!mr.ok||!br.ok||!er.ok||!xr.ok)throw Error('Unable to load manifest, buildinfo, or exploration queue');
+   const raw=await mr.arrayBuffer();buildInfo=await br.json();exploreFamilies=await er.json();
+   const xraw=await xr.arrayBuffer();extraManifest=JSON.parse(new TextDecoder().decode(xraw));
+   const xhash=await shaHex(xraw);
+   if(xhash!==null&&xhash!==buildInfo.extraManifestSha256)throw Error('Exploratory media manifest SHA mismatch');
+   if(extraManifest.samples.length!==4)throw Error('Expected four exploratory samples');
+   const digest=await shaHex(raw);
+   if(digest===null){$('manifestStatus').textContent='Manifest SHA-256 cannot be verified in this browser. Pilot may still run.';$('manifestStatus').dataset.verified='crypto_unavailable';}
+   else if(digest!==buildInfo.manifestSha256)throw Error('Manifest SHA-256 differs from buildinfo.json; do NOT run');
+   else {$('manifestStatus').textContent='10 real media samples loaded; manifest SHA-256 verified. Development suite only.';$('manifestStatus').dataset.verified='sha256_verified';}
+   manifest=JSON.parse(new TextDecoder().decode(raw));
+   if(manifest.schema!=='video-10-family-dev/manifest@1'||manifest.samples.length!==10||new Set(manifest.samples.map(s=>s.family)).size!==10)throw Error('Expected exactly 10 unique families');
+   const tb=$('explore');for(const r of exploreFamilies){const tr=document.createElement('tr');setCell(tr,r.name);setCell(tr,r.feasibility);setCell(tr,r.next);tb.appendChild(tr)}
+   $('run').disabled=false;$('batch').disabled=false;
+ }catch(e){$('manifestStatus').textContent='SETUP ERROR: '+String(e)}
+})();
+</script>
+</body></html>
