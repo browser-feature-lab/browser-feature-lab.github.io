@@ -1,0 +1,199 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Unified development result",
+  "type": "object",
+  "required": [
+    "schema",
+    "experiment",
+    "label",
+    "startedAt",
+    "completedAt",
+    "status",
+    "integrity",
+    "provenance",
+    "baseline",
+    "playback",
+    "errors",
+    "requiresReload"
+  ],
+  "properties": {
+    "schema": {
+      "const": "pi-suite-v7-unified-dev/result@1"
+    },
+    "experiment": {
+      "const": {
+        "id": "pi-suite-v7-unified-dev",
+        "frozen": false
+      }
+    },
+    "status": {
+      "enum": [
+        "completed",
+        "incomplete"
+      ]
+    },
+    "label": {
+      "type": "string"
+    },
+    "startedAt": {
+      "type": "string"
+    },
+    "completedAt": {
+      "type": "string"
+    },
+    "errors": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "requiresReload": {
+      "type": "boolean"
+    },
+    "baseline": {
+      "anyOf": [
+        {
+          "type": "null"
+        },
+        {
+          "$ref": "./baseline/result.schema.json"
+        }
+      ]
+    },
+    "playback": {
+      "anyOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "object",
+          "required": [
+            "schema",
+            "results",
+            "exploratoryResults",
+            "controlChecks",
+            "semantics",
+            "exploratoryFamilies"
+          ],
+          "properties": {
+            "schema": {
+              "const": "pi-suite-v7-unified-dev/playback@1"
+            },
+            "results": {
+              "type": "array",
+              "minItems": 10,
+              "maxItems": 10,
+              "items": {
+                "type": "object",
+                "required": [
+                  "family",
+                  "mime",
+                  "file",
+                  "sampleSha256",
+                  "scope",
+                  "behavior"
+                ],
+                "properties": {
+                  "family": {
+                    "type": "string"
+                  },
+                  "sampleSha256": {
+                    "type": "string",
+                    "pattern": "^[a-f0-9]{64}$"
+                  },
+                  "scope": {
+                    "enum": [
+                      "baseline",
+                      "exploratory_only"
+                    ]
+                  },
+                  "behavior": {
+                    "type": "object",
+                    "required": [
+                      "status"
+                    ]
+                  }
+                }
+              }
+            },
+            "exploratoryResults": {
+              "type": "array",
+              "minItems": 4,
+              "maxItems": 4,
+              "items": {
+                "type": "object",
+                "required": [
+                  "family",
+                  "mime",
+                  "file",
+                  "sampleSha256",
+                  "scope",
+                  "behavior"
+                ],
+                "properties": {
+                  "family": {
+                    "type": "string"
+                  },
+                  "sampleSha256": {
+                    "type": "string",
+                    "pattern": "^[a-f0-9]{64}$"
+                  },
+                  "scope": {
+                    "enum": [
+                      "baseline",
+                      "exploratory_only"
+                    ]
+                  },
+                  "behavior": {
+                    "type": "object",
+                    "required": [
+                      "status"
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        }
+      ]
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "status": {
+            "const": "completed"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "baseline": {
+            "type": "object"
+          },
+          "playback": {
+            "type": "object"
+          },
+          "integrity": {
+            "type": "object",
+            "properties": {
+              "status": {
+                "const": "verified"
+              }
+            },
+            "required": [
+              "status"
+            ]
+          },
+          "provenance": {
+            "type": "object"
+          },
+          "errors": {
+            "maxItems": 0
+          }
+        }
+      }
+    }
+  ]
+}

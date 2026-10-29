@@ -1,0 +1,7 @@
+{
+  "runnerSha256": "95388d5bcea99f9c9fa02f3879e286399d52368b7989f95dfeb8b6a4c884c9c4",
+  "manifestSha256": "9277a549059ba3960ddd78d37bcb283515dbee3d6984721bb3024556800d8f7d",
+  "exploreSha256": "a33d203ae51c5794d3632d78da9cc9c44ccccff054f58a32fa09692e1646c3c7",
+  "extraManifestSha256": "805b1ed0470216f92a786a1f8ee90a2319fd8bbb1c17d7ca173fac7bd1c19536",
+  "devStage": "v7-dev static video module; NOT the frozen v6 suite"
+}
